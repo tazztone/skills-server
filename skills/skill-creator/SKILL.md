@@ -224,4 +224,123 @@ When the user tells you they're done, gather their feedback (from `feedback.json
 
 ## Improving the skill
 
-This is
+This is the heart of the loop. You've run the test cases, the user has reviewed the results, and now you need to make the skill better based on their feedback.
+
+### How to think about improvements
+
+1. **Generalize from the feedback.** You're creating a skill that will be used many times across many different prompts. You and the user are iterating on a few examples because it helps move faster, but if the skill only works for those examples, it's useless. Rather than making fiddly over-fitted changes or oppressively rigid constraints, try different metaphors or patterns when something is stubborn.
+
+2. **Keep the prompt lean.** Remove things that aren't pulling their weight. If it looks like the skill is making the AI waste time doing unproductive things, cut the parts causing that and see what happens.
+
+3. **Explain the why.** Try hard to explain the *why* behind everything you're asking the model to do. Today's LLMs are smart — when given a good harness they can go beyond rote instructions and really make things happen. If you find yourself writing ALWAYS or NEVER in all caps, that's a yellow flag — if possible, reframe and explain the reasoning so the model understands why the thing you're asking for is important.
+
+4. **Look for repeated work across test cases.** If the AI independently wrote similar helper scripts or took the same multi-step approach across multiple test cases, that's a signal the skill should bundle that script. Write it once, put it in `scripts/`, and tell the skill to use it.
+
+### The iteration loop
+
+After improving the skill:
+
+1. Apply your improvements to the skill
+2. Rerun all test cases into a new `iteration-<N+1>/` directory, including baseline runs
+3. Present the new results to the user, ideally alongside the previous iteration's results for comparison
+4. Wait for the user to review and give feedback
+5. Read the new feedback, improve again, repeat
+
+Keep going until:
+- The user says they're happy
+- The feedback is all empty (everything looks good)
+- You're not making meaningful progress
+
+---
+
+## Advanced: Blind comparison
+
+For situations where you want a more rigorous comparison between two versions of a skill (e.g., the user asks "is the new version actually better?"), there's a blind comparison system. Read `agents/comparator.md` and `agents/analyzer.md` for the details. The basic idea is: give two outputs to an independent evaluator without telling it which is which, and let it judge quality.
+
+This is optional and most users won't need it. The human review loop is usually sufficient.
+
+---
+
+## Description Optimization
+
+The description field in SKILL.md frontmatter is the primary mechanism that determines whether an AI assistant invokes a skill. After creating or improving a skill, offer to optimize the description for better triggering accuracy.
+
+### Step 1: Generate trigger eval queries
+
+Create 20 eval queries — a mix of should-trigger and should-not-trigger. Save as JSON:
+
+```json
+[
+  {"query": "the user prompt", "should_trigger": true},
+  {"query": "another prompt", "should_trigger": false}
+]
+```
+
+The queries must be realistic and something a user would actually type. Not abstract requests, but concrete and specific ones with a good amount of detail — file paths, personal context, column names, company names, URLs. A little backstory. Some might be lowercase or contain abbreviations, typos, or casual speech. Use a mix of different lengths, and focus on edge cases.
+
+Bad: `"Format this data"`, `"Extract text from PDF"`, `"Create a chart"`
+
+Good: `"ok so my boss just sent me this xlsx file (its in my downloads, called something like 'Q4 sales final FINAL v2.xlsx') and she wants me to add a column that shows the profit margin as a percentage. The revenue is in column C and costs are in column D i think"`
+
+For the **should-trigger** queries (8–10), cover different phrasings of the same intent — some formal, some casual. Include cases where the user doesn't explicitly name the skill but clearly needs it, and cases where this skill competes with another but should win.
+
+For the **should-not-trigger** queries (8–10), focus on near-misses — queries that share keywords with the skill but actually need something different. These are the most valuable test cases. Don't make them obviously irrelevant.
+
+### Step 2: Review with user
+
+Present the eval set to the user for review. Share the list of queries and ask: "Do these look right? Feel free to edit any, toggle the should/shouldn't trigger labels, or add new ones before I run the optimization."
+
+### Step 3: Run the optimization loop
+
+Iterate on the description using the eval set as your guide:
+
+1. Evaluate the current description against the eval queries — for each query, assess whether the current description would cause the skill to trigger correctly
+2. Identify patterns in the failures — which kinds of queries are missed or wrongly triggered?
+3. Propose an improved description and explain your reasoning
+4. Re-evaluate and repeat up to 5 iterations
+
+Split the eval set into a training portion (~60%) and a held-out test portion (~40%). Optimize against the training set, but report final scores on the test set to avoid overfitting.
+
+> If your environment provides a description optimization script (e.g., `scripts/run_loop.py`), use it. Otherwise, run the loop described above manually.
+
+### Step 4: Apply the result
+
+Take the best-performing description and update the skill's SKILL.md frontmatter. Show the user a before/after comparison and report the scores.
+
+---
+
+## Packaging
+
+If a packaging script is available (e.g., `scripts/package_skill.py`), run it to produce a `.skill` file:
+
+```bash
+python -m scripts.package_skill <path/to/skill-folder>
+```
+
+Point the user to the resulting `.skill` file so they can install it. If no packaging script is available, simply point the user to the skill directory.
+
+---
+
+## Reference files
+
+The agents/ directory contains instructions for specialized sub-tasks. Read them when relevant:
+
+- `agents/grader.md` — How to evaluate assertions against outputs
+- `agents/comparator.md` — How to do blind A/B comparison between two outputs
+- `agents/analyzer.md` — How to analyze why one version beat another
+
+The references/ directory has additional documentation:
+- `references/schemas.md` — JSON structures for evals.json, grading.json, etc.
+
+---
+
+Repeating the core loop here for emphasis:
+
+- Figure out what the skill is about
+- Draft or edit the skill
+- Run the AI-with-access-to-the-skill on test prompts, plus a baseline
+- With the user, evaluate the outputs — qualitatively and quantitatively
+- Repeat until you and the user are satisfied
+- Package the final skill and return it to the user
+
+Good luck!
