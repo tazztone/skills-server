@@ -56,8 +56,8 @@ Run when asked to "review open PRs" or "plan merges".
 - [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
 - [ ] Classify each PR into one of four buckets (see below)
 
-**Step 3 — Present plan:**
-- [ ] Write the triage table and recommended merge order directly in your response to the user
+**Step 3 — Save plan for review:**
+- [ ] Write the triage table and recommended merge order to a file (e.g. `implementation_plan.md`) so the user can review it
 - [ ] Wait for user confirmation before acting on any PR
 
 **Buckets:**
