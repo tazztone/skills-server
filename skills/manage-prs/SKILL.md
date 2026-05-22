@@ -38,8 +38,8 @@ Run when asked to "review open PRs" or "plan merges".
 - [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
 - [ ] Classify each PR into one of four buckets (see below)
 
-**Step 4 — Present plan in the chat:**
-- [ ] Write the triage table and recommended merge order directly in your response to the user
+**Step 4 — Present plan:**
+- [ ] Write the triage table and recommended merge order, task list, etc
 - [ ] Wait for user confirmation before acting on any PR
 
 **Buckets:**
