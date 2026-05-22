@@ -9,6 +9,7 @@ Run this **before** the standard review rubric when the PR author is an AI agent
 - **Cross-PR conflicts** — does this PR overlap with another open PR on the same files? Check the file list from triage.
 - **Invented APIs** — does the code call methods on libraries that don't match the installed version? Check `package.json` / lockfile.
 - **Plausible-but-wrong logic** — AI code often compiles and passes linting but has subtle logic errors. Read the core logic path carefully, not just the diff surface.
+- **Committed artefacts** — check for files that should not be in source control: `.orig`, `.diff`, debug output, temp files. If present → reject and ask the agent to remove them.
 
 If any of these fail → **reject**, not just request-changes. AI agents should rewrite from scratch, not patch.
 

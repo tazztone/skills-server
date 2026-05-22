@@ -24,10 +24,20 @@ gh pr view 42 --comments
 
 Run when asked to "review open PRs" or "plan merges".
 
-- [ ] `gh pr list --json number,title,author,reviewDecision,statusCheckRollup,isDraft,baseRefName,files` — get full picture
-- [ ] Check for cross-PR file overlap: if two PRs touch the same files, flag them as a dependency pair
+**Step 1 — Read reference docs first:**
+- [ ] Read [REFERENCE.md](REFERENCE.md) before reviewing any diff
+
+**Step 2 — Gather all PR data in one pass:**
+- [ ] `gh pr list --json number,title,author,reviewDecision,statusCheckRollup,isDraft,baseRefName,files --limit 100`
+- [ ] For each PR, run `gh pr diff <number>` — do all diffs before drawing any conclusions
+
+**Step 3 — Analyse:**
+- [ ] Identify cross-PR file overlaps: any two PRs touching the same file are a dependency pair
+- [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
 - [ ] Classify each PR into one of four buckets (see below)
-- [ ] Present the buckets to the user with a recommended merge order
+
+**Step 4 — Present plan:**
+- [ ] Output the triage table and recommended merge order **inline in your response** — do not write files
 - [ ] Wait for user confirmation before acting on any PR
 
 **Buckets:**
@@ -43,6 +53,7 @@ Run when asked to "review open PRs" or "plan merges".
 
 ### 2. Review — read and comment on a PR
 
+- [ ] Read [REFERENCE.md](REFERENCE.md) if not already done
 - [ ] `gh pr diff <number>` — read the full diff
 - [ ] `gh pr view <number> --comments` — read existing discussion
 - [ ] If PR is AI-generated, run the AI-generated PR checklist first (see [REFERENCE.md](REFERENCE.md))
