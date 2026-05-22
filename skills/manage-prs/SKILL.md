@@ -56,8 +56,8 @@ Run when asked to "review open PRs" or "plan merges".
 - [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
 - [ ] Classify each PR into one of four buckets (see below)
 
-**Step 3 — Save plan as artifact:**
-- [ ] Write the triage table and recommended merge order as an artifact file (e.g. `implementation_plan.md`) so the user can review it with Proceed/Open buttons
+**Step 3 — Present plan:**
+- [ ] Write the triage table and recommended merge order directly in your response to the user
 - [ ] Wait for user confirmation before acting on any PR
 
 **Buckets:**
