@@ -47,8 +47,8 @@ Run when asked to "review open PRs" or "plan merges".
 **Step 1 — Gather all PR data in one pass:**
 - [ ] `gh pr list --json number,title,author,reviewDecision,statusCheckRollup,isDraft,baseRefName,files --limit 100`
 - [ ] For each PR, run `gh pr diff <number>` — do all diffs before drawing any conclusions
-- [ ] If you need a helper script to process the data (e.g. overlap matrix), write it to `/tmp/process_prs.py` and run it from there — these are throwaway scripts and must never be committed to the repo
-- [ ] If the script produces intermediate data (e.g. a JSON file), write that to `/tmp/` as well
+- [ ] If you need a helper script to process the data (e.g. overlap matrix), write it to a scratch/temp folder and run it from there — these are throwaway scripts and must never be committed to the repo
+- [ ] Any intermediate data files (e.g. JSON output) go in the same scratch folder
 
 **Step 2 — Analyse:**
 - [ ] Run the AI-generated PR checklist above on any PR authored by an AI agent
