@@ -102,26 +102,9 @@ Not all rejections are the same — pick the right response:
 
 Run after the user has confirmed the triage plan from workflow 1.
 
-**Before starting:**
-- [ ] Write `task.md` at the repo root with one checkbox per action (merge, comment, close). This is the live progress tracker for the coding harness.
-
-```markdown
-# PR Merge Plan
-
-- [ ] Merge #73 — Fix Path Traversal Vulnerability
-- [ ] Merge #72 — Add SessionController unit tests
-- [ ] Comment on #69 — request removal of .orig and fix.diff artifacts
-...
-```
-
-**For each step:**
-- [ ] Execute the action
-- [ ] Check the corresponding box in `task.md` immediately after
-- [ ] If a rebase is needed before merging, run `gh pr update-branch <number>` first
-- [ ] If a step fails, stop and report to the user — do not continue to the next step
-
-**When all steps are done:**
-- [ ] Delete `task.md` — it is a temporary execution artifact, not a permanent project file
+- [ ] Write a task list with one item per planned action (merge, comment, close)
+- [ ] Execute the actions in order; rebase with `gh pr update-branch <number>` before merging if needed
+- [ ] If a step fails, stop and report to the user — do not continue
 
 ## Safety rules
 
