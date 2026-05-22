@@ -93,7 +93,7 @@ Not all rejections are the same — pick the right response:
 - [ ] Leave the PR open so the author can fix and repush
 
 **Duplicate or subset** (another open PR covers the same change)
-- [ ] Merge the better PR; the duplicate will go stale on its own — no comment needed
+- [ ] Close with a comment naming the PR that was merged instead: `gh pr close <number> --comment "Closing in favour of #X which covers the same change."`
 
 **Genuinely out of scope or unrecoverable**
 - [ ] Close with a comment: `gh pr close <number> --comment "..."`
@@ -111,5 +111,5 @@ Run after the user has confirmed the triage plan from workflow 1.
 - Never merge a draft PR (`isDraft: true`)
 - Never merge if any required CI check is failing
 - Never merge into a non-default base branch without confirming with the user
-- Never close a PR without leaving a comment explaining why
+- Always leave a comment when closing any PR, regardless of reason — the author may be an AI agent that reads comments to self-correct
 - Always present a plan and wait for user approval before merging multiple PRs in one go
