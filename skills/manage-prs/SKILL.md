@@ -30,15 +30,16 @@ Run when asked to "review open PRs" or "plan merges".
 **Step 2 — Gather all PR data in one pass:**
 - [ ] `gh pr list --json number,title,author,reviewDecision,statusCheckRollup,isDraft,baseRefName,files --limit 100`
 - [ ] For each PR, run `gh pr diff <number>` — do all diffs before drawing any conclusions
-- [ ] If you need a helper script to process the data (e.g. overlap matrix), write and run it in `/tmp`
+- [ ] If you need a helper script to process the data (e.g. overlap matrix), write it to `/tmp/process_prs.py` and run it from there — these are throwaway scripts and must never be committed to the repo
+- [ ] If the script produces intermediate data (e.g. a JSON file), write that to `/tmp/` as well
 
 **Step 3 — Analyse:**
 - [ ] Identify cross-PR file overlaps: any two PRs touching the same file are a dependency pair
 - [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
 - [ ] Classify each PR into one of four buckets (see below)
 
-**Step 4 — Present plan inline:**
-- [ ] Output the triage table and recommended merge order in your response
+**Step 4 — Present plan in the chat:**
+- [ ] Write the triage table and recommended merge order directly in your response to the user
 - [ ] Wait for user confirmation before acting on any PR
 
 **Buckets:**
