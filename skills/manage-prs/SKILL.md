@@ -30,14 +30,15 @@ Run when asked to "review open PRs" or "plan merges".
 **Step 2 — Gather all PR data in one pass:**
 - [ ] `gh pr list --json number,title,author,reviewDecision,statusCheckRollup,isDraft,baseRefName,files --limit 100`
 - [ ] For each PR, run `gh pr diff <number>` — do all diffs before drawing any conclusions
+- [ ] If you need a helper script to process the data (e.g. overlap matrix), write and run it in `/tmp`
 
 **Step 3 — Analyse:**
 - [ ] Identify cross-PR file overlaps: any two PRs touching the same file are a dependency pair
 - [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
 - [ ] Classify each PR into one of four buckets (see below)
 
-**Step 4 — Present plan:**
-- [ ] Output the triage table and recommended merge order **inline in your response** — do not write files
+**Step 4 — Present plan inline:**
+- [ ] Output the triage table and recommended merge order in your response
 - [ ] Wait for user confirmation before acting on any PR
 
 **Buckets:**
