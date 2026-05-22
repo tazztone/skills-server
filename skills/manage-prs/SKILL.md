@@ -48,7 +48,7 @@ Run when asked to "review open PRs" or "plan merges".
 | ✅ **Merge-ready** | CI passing, approved, no conflicts, not draft |
 | 🔍 **Needs review** | No review yet, or changes requested |
 | ⚠️ **Blocked** | CI failing, merge conflicts, or overlaps with another open PR |
-| 🗑️ **Reject** | Stale, out of scope, duplicates another PR, or fails AI-generated PR checks |
+| 🗑️ **Reject** | Stale, out of scope, fixable quality issue, or duplicate |
 
 **Merge order heuristic:** fixes before features, smaller PRs before larger, unblock dependencies first. When two PRs overlap, merge the simpler one first.
 
@@ -83,23 +83,19 @@ Use when a PR looks clean and you want to approve and merge without a separate c
 - [ ] `gh pr merge <number> --squash --delete-branch`
 - [ ] Confirm success to user
 
-### 5. Reject — close a bad PR
+### 5. Handle rejected PRs
 
-- [ ] Post a review requesting changes: `gh pr review <number> --request-changes --body "..."`
-- [ ] If clearly out of scope or a duplicate, close it: `gh pr close <number> --comment "..."`
-- [ ] Use the rejection comment template below
+Not all rejections are the same — pick the right response:
 
-**Rejection comment template:**
+**Fixable quality issue** (e.g. committed artefacts, wrong scope, bad logic)
+- [ ] Leave a comment explaining exactly what needs fixing: `gh pr comment <number> --body "..."`
+- [ ] Leave the PR open so the author can fix and repush
 
-```markdown
-**Reason for closing / requesting changes:**
+**Duplicate or subset** (another open PR covers the same change)
+- [ ] Merge the better PR; the duplicate will go stale on its own — no comment needed
 
-- <specific reason>
-
-**What would need to change to get this merged:**
-
-- <actionable fix, or "this is out of scope because...">
-```
+**Genuinely out of scope or unrecoverable**
+- [ ] Close with a comment: `gh pr close <number> --comment "..."`
 
 ## Safety rules
 
