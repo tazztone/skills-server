@@ -1,132 +1,193 @@
 ---
 name: manage-prs
-description: Review, triage, approve, reject, and merge GitHub pull requests, including AI-generated PRs. Use when the user wants to review PRs, merge a PR, assess all open PRs, close a bad PR, request changes, auto-merge clean PRs, or plan a merge strategy across a repository.
+description: Review, triage, approve, reject, and merge GitHub pull requests, including AI-generated PRs. Use when the user wants to review PRs, merge a PR, assess all open PRs, close a bad PR, request changes, auto-merge clean PRs, or plan a merge strategy across a repository. Do not use for babysitting a single PR through CI and comments — use babysit instead.
+disable-model-invocation: true
 ---
 
 # Manage PRs
 
-PRs in this repo may be authored by an AI agent (e.g. Jules). Apply extra scrutiny to AI-generated PRs — see the AI-generated PR checklist below.
+GitHub PR operations across one or many pull requests. Read repo-specific rules from `AGENTS.md` at the repository root when present.
+
+`gh` needs network access and appropriate repo permissions (read for review; merge rights for merge workflows).
+
+## Scope
+
+| Use this skill | Use another skill |
+|----------------|-------------------|
+| Triage all open PRs, merge planning, approve/close/merge | **babysit** — one PR stuck on CI, conflicts, or review threads |
+| Review verdicts and GitHub actions | **review** — deep code-quality review without GitHub ops (if available) |
+
+For `gh pr create` and HEREDOC bodies, follow project or user PR-creation rules when they exist.
+
+## When to use which workflow
+
+| User intent | Workflow | Merge? |
+|-------------|----------|--------|
+| "Triage open PRs" / "plan merges" | 1. Triage | No — plan only |
+| "Review #N" | 2. Review | No — unless user also asks to merge |
+| "Auto-merge #N" / "merge if clean" | 3. Auto-merge | Yes — single PR only |
+| "Merge #N" (already approved) | 4. Merge | Yes — single PR |
+| Close / reject handling | 5. Handle rejected | Close only when appropriate |
+| "Execute the plan" / "run the merges" | 6. Execute plan | Yes — after explicit user confirmation |
+
+Never merge during triage (workflow 1). Never batch-merge without user confirmation (workflow 6).
 
 ## Quick start
 
 ```bash
-# List open PRs
 gh pr list
-
-# Review a specific PR
 gh pr diff 42
 gh pr view 42 --comments
+gh pr view 42 --json mergeable,isDraft,reviewDecision,statusCheckRollup
 ```
+
+## Detect AI-generated PRs
+
+Run the AI checklist when any of these apply:
+
+- `author.login` ends with `[bot]` or is a known agent account (e.g. `jules`, `cursor`, `dependabot`)
+- PR labels mention an agent or automation
+- Description/body states the PR was opened by an agent
+
+When unsure, treat as AI-generated and apply the checklist.
 
 ## AI-generated PR checklist
 
-Run this **before** the standard review rubric when the PR author is an AI agent (e.g. Jules).
+Run **before** the standard review rubric when the PR is AI-generated (see above).
 
-- **Hallucinated imports / functions** — do all imported modules, functions, and types actually exist in the codebase? `grep` for any unfamiliar identifiers.
-- **Over-scoping** — does the diff touch more files than the task description justifies? Flag any changes unrelated to the stated goal.
-- **Cross-PR conflicts** — does this PR overlap with another open PR on the same files? Check the file list from triage.
-- **Invented APIs** — does the code call methods on libraries that don’t match the installed version? Check `package.json` / lockfile.
-- **Plausible-but-wrong logic** — AI code often compiles and passes linting but has subtle logic errors. Read the core logic path carefully, not just the diff surface.
-- **Committed artefacts** — check for files that should not be in source control: `.orig`, `.diff`, debug output, temp files. If present → comment and ask the agent to remove them before merging.
+- **Hallucinated imports / functions** — do all imported modules, functions, and types exist? `grep` unfamiliar identifiers.
+- **Over-scoping** — does the diff exceed what the description justifies? (Also covered under scope creep in the standard rubric.)
+- **Cross-PR conflicts** — does this PR overlap another open PR on the same files? Use triage file lists or [overlap detection](reference.md#overlap-and-duplicates).
+- **Invented APIs** — do library calls match the installed version? Check `package.json` / lockfile / docs.
+- **Plausible-but-wrong logic** — read the core logic path, not just the diff surface.
+- **Committed artefacts** — `.orig`, `.diff`, debug output, temp files → comment; do not merge until removed.
 
 ## Standard review rubric
 
-- **Correctness** — does the code do what the PR description claims?
-- **Tests** — are new behaviours covered? Are existing tests still passing?
-- **Breaking changes** — does it change a public API, config format, or DB schema without a migration path?
-- **Scope creep** — does the diff contain unrelated changes? Flag them.
-- **Security** — any hardcoded secrets, unchecked inputs, or new dependencies with known vulnerabilities?
-- **Style** — consistent with surrounding code? (Don’t block on nits — comment but approve.)
+- **Correctness** — does the code match the PR description?
+- **Tests** — new behaviour covered? Existing tests still passing?
+- **Breaking changes** — public API, config, or schema without migration?
+- **Scope creep** — unrelated changes in the diff?
+- **Security** — secrets, unchecked inputs, risky new dependencies?
+- **Style** — consistent with surrounding code? (Nits: comment, don’t block.)
+
+## Verdicts and `gh` commands
+
+| Verdict | Meaning | Action |
+|---------|---------|--------|
+| **Approve** | Ready to merge (subject to safety rules) | `gh pr review <n> --approve` |
+| **Request changes** | Fixable issues; keep PR open | `gh pr review <n> --request-changes --body "..."` |
+| **Comment only** | Feedback without blocking | `gh pr review <n> --comment --body "..."` |
+| **Reject (close)** | Duplicate, out of scope, or unrecoverable | Workflow 5 — `gh pr close` with explanation |
+
+"Reject" is not a `gh pr review` flag. Use request-changes for fixable work; close only when appropriate.
+
+## Triage output template
+
+Write to a **scratch path only** (never commit): e.g. `/tmp/pr-triage-YYYY-MM-DD.md`
+
+```markdown
+# PR triage — [repo] — [date]
+
+## Merge order
+1. #… — reason
+2. #…
+
+## Table
+
+| PR | Author | Bucket | CI | Overlaps | Notes | Action |
+|----|--------|--------|----|-----------|-------|--------|
+| #42 | @jules[bot] | Blocked | failing | #38 (`src/foo.ts`) | … | Merge after #38 |
+
+Buckets: **Merge-ready** | **Needs review** | **Blocked** | **Reject**
+```
+
+See [examples.md](examples.md) for a filled-in sample.
 
 ## Workflows
 
 ### 1. Triage — assess all open PRs
 
-Run when asked to "review open PRs" or "plan merges".
-
-**Step 1 — Gather all PR data in one pass:**
-- [ ] `gh pr list --json number,title,author,reviewDecision,statusCheckRollup,isDraft,baseRefName,files --limit 100`
-- [ ] For each PR, run `gh pr diff <number>` — do all diffs before drawing any conclusions
-- [ ] If you need a helper script to process the data (e.g. overlap matrix), write it to a scratch/temp folder and run it from there — these are throwaway scripts and must never be committed to the repo
-- [ ] Any intermediate data files (e.g. JSON output) go in the same scratch folder
+**Step 1 — Gather (one pass):**
+- [ ] `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100`
+- [ ] For each PR: `gh pr diff <number>` — complete all diffs before concluding
+- [ ] Optional overlap report: save JSON to scratch, run `python scripts/pr-overlap.py scratch/prs.json` (see [reference.md](reference.md))
+- [ ] Helper scripts and intermediate JSON stay in scratch — never commit to the repo
 
 **Step 2 — Analyse:**
-- [ ] Run the AI-generated PR checklist above on any PR authored by an AI agent
-- [ ] Identify cross-PR file overlaps: any two PRs touching the same file are a dependency pair
-- [ ] Identify duplicates and subsets (identical diffs, or one diff is a subset of another)
-- [ ] Classify each PR into one of four buckets (see below)
+- [ ] AI checklist on every AI-generated PR
+- [ ] File overlaps and duplicates per [reference.md](reference.md#overlap-and-duplicates)
+- [ ] Classify each PR (buckets below)
 
-**Step 3 — Save plan for review:**
-- [ ] Write the triage table and recommended merge order to a file (e.g. `implementation_plan.md`) so the user can review it
-- [ ] Wait for user confirmation before acting on any PR
+**Step 3 — Deliver plan:**
+- [ ] Write triage doc using template above
+- [ ] Wait for user confirmation before any merge/close/approve
 
 **Buckets:**
 
 | Bucket | Criteria |
-|---|---|
-| ✅ **Merge-ready** | CI passing, approved, no conflicts, not draft |
-| 🔍 **Needs review** | No review yet, or changes requested |
-| ⚠️ **Blocked** | CI failing, merge conflicts, or overlaps with another open PR |
-| 🗑️ **Reject** | Stale, out of scope, fixable quality issue, or duplicate |
+|--------|----------|
+| Merge-ready | CI passing, approved, `mergeable` not `CONFLICTING`, not draft |
+| Needs review | No approval yet, or changes requested |
+| Blocked | CI failing, conflicts, or file overlap with another open PR |
+| Reject | Stale, out of scope, duplicate/subset, or unfixable quality |
 
-**Merge order heuristic:** fixes before features, smaller PRs before larger, unblock dependencies first. When two PRs overlap, merge the simpler one first.
+**Merge order:** fixes before features; smaller before larger; unblock dependencies first; when two PRs overlap, merge the simpler one first.
 
 ### 2. Review — read and comment on a PR
 
-- [ ] `gh pr diff <number>` — read the full diff
-- [ ] `gh pr view <number> --comments` — read existing discussion
-- [ ] If PR is AI-generated, run the AI-generated PR checklist above first
-- [ ] Evaluate against the standard review rubric above
-- [ ] Post a structured review comment via `gh pr review <number> --comment --body "..."`
-- [ ] Conclude with a clear verdict: **approve**, **request changes**, or **reject**
+- [ ] `gh pr diff <number>` and `gh pr view <number> --comments`
+- [ ] AI checklist if AI-generated
+- [ ] Standard rubric
+- [ ] Post review: `gh pr review <number> --comment --body "..."` (or `--approve` / `--request-changes`)
+- [ ] State verdict using table above — do not merge unless user asked
 
-### 3. Auto-merge — review and merge in one step
+### 3. Auto-merge — review and merge one PR
 
-Use when a PR looks clean and you want to approve and merge without a separate confirmation.
+Only when the user explicitly requests auto-merge or "merge if clean" for **one** PR.
 
-- [ ] Run the full Review checklist (workflow 2)
-- [ ] If verdict is **approve** and all safety rules pass:
-  - [ ] `gh pr review <number> --approve`
-  - [ ] `gh pr merge <number> --squash --delete-branch`
-  - [ ] Confirm success to user
-- [ ] If verdict is anything other than **approve**, stop and report to user — do not merge
+- [ ] Full workflow 2
+- [ ] All [safety rules](#safety-rules) pass
+- [ ] `gh pr review <number> --approve`
+- [ ] `gh pr merge <number> --squash --delete-branch` (or method per [reference.md](reference.md#merge-methods))
+- [ ] Verify: `gh pr view <number> --json state,mergedAt`
+- [ ] If not approve → stop; do not merge
 
-### 4. Merge — merge an already-approved PR
+### 4. Merge — already-approved PR
 
-- [ ] Confirm PR is not a draft: `gh pr view <number> --json isDraft`
-- [ ] Confirm CI is passing: check `statusCheckRollup` — abort if any required check fails
-- [ ] Confirm at least one approval: check `reviewDecision`
-- [ ] Confirm no conflicts: `mergeable` must not be `CONFLICTING`
-- [ ] Choose merge method: `--squash` for feature branches, `--merge` for release branches, `--rebase` if user requests
-- [ ] `gh pr merge <number> --squash --delete-branch`
-- [ ] Confirm success to user
+- [ ] `gh pr view <number> --json isDraft,mergeable,reviewDecision,statusCheckRollup`
+- [ ] Safety rules pass
+- [ ] `gh pr merge <number> --squash --delete-branch` (default; see reference for alternatives)
+- [ ] Verify merged state (same as workflow 3)
 
 ### 5. Handle rejected PRs
 
-Not all rejections are the same — pick the right response:
+**Fixable** — comment with exact fixes; leave open:
+`gh pr comment <number> --body "..."`
 
-**Fixable quality issue** (e.g. committed artefacts, wrong scope, bad logic)
-- [ ] Leave a comment explaining exactly what needs fixing: `gh pr comment <number> --body "..."`
-- [ ] Leave the PR open so the author can fix and repush
+**Duplicate / subset** — close naming the winning PR:
+`gh pr close <number> --comment "Closing in favour of #X …"`
 
-**Duplicate or subset** (another open PR covers the same change)
-- [ ] Close with a comment naming the PR that was merged instead: `gh pr close <number> --comment "Closing in favour of #X which covers the same change."`
+**Out of scope / unrecoverable** — close with clear reason (always comment)
 
-**Genuinely out of scope or unrecoverable**
-- [ ] Close with a comment: `gh pr close <number> --comment "..."`
+### 6. Execute merge plan
 
-### 6. Execute a merge plan — run approved merges sequentially
+After user confirms workflow 1 plan:
 
-Run after the user has confirmed the triage plan from workflow 1.
-
-- [ ] Write a task list with one item per planned action (merge, comment, close)
-- [ ] Execute the actions in order; rebase with `gh pr update-branch <number>` before merging if needed
-- [ ] If a step fails, stop and report to the user — do not continue
+- [ ] Task list: one item per merge, comment, or close
+- [ ] Sequential execution; `gh pr update-branch <number>` when branch is behind base
+- [ ] Re-check safety rules before each merge
+- [ ] On failure → stop and report; do not continue
 
 ## Safety rules
 
-- Never merge a draft PR (`isDraft: true`)
-- Never merge if any required CI check is failing
-- Never merge into a non-default base branch without confirming with the user
-- Always leave a comment when closing any PR, regardless of reason — the author may be an AI agent that reads comments to self-correct
-- Always present a plan and wait for user approval before merging multiple PRs in one go
+- Never merge a draft (`isDraft: true`)
+- Never merge if required CI checks are failing (if branch protection is unclear, list failing checks and ask)
+- Never merge to a non-default base without user confirmation
+- Always comment when closing a PR (authors may be agents that read comments to self-correct)
+- Batch merges only after explicit user approval of the triage plan
+
+## Additional resources
+
+- [examples.md](examples.md) — sample triage table and review comment
+- [reference.md](reference.md) — CI fields, merge methods, overlap/duplicate rules, overlap script
