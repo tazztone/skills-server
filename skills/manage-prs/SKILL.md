@@ -1,14 +1,14 @@
 ---
 name: manage-prs
 description: Review, triage, approve, reject, and merge GitHub pull requests, including AI-generated PRs. Use when the user wants to review PRs, merge a PR, assess all open PRs, close a bad PR, request changes, auto-merge clean PRs, or plan a merge strategy across a repository. Do not use for babysitting a single PR through CI and comments — use babysit instead.
-disable-model-invocation: true
+disable-model-invocation: true # Prevent automatic background sub-agent invocation to maintain step-by-step shell execution control.
 ---
 
 # Manage PRs
 
-GitHub PR operations across one or many pull requests. Read repo-specific rules from `AGENTS.md` at the repository root when present.
+GitHub PR operations across one or many pull requests. Read repo-specific rules from `AGENTS.md` at the repository root when present. Overwrite merge methods, buckets, and CI/review gates as prescribed in `AGENTS.md` to ensure local alignment.
 
-`gh` needs network access and appropriate repo permissions (read for review; merge rights for merge workflows).
+`gh` needs network access and appropriate repo permissions. If any command fails with auth/token expiration errors (e.g. `401 Unauthorized` or expired credential errors), immediately stop the workflow, report the error, and prompt the user to re-authenticate.
 
 ## Scope
 
@@ -86,7 +86,7 @@ Run **before** the standard review rubric when the PR is AI-generated (see above
 
 ## Triage output template
 
-Write to a **scratch path only** (never commit): e.g. `/tmp/pr-triage-YYYY-MM-DD.md`
+Write to a **scratch path only** (never commit): e.g. `/tmp/pr-triage-[repo]-YYYYMMDD-[suffix].md` (use a unique suffix or timestamp to avoid collisions in multi-session environments).
 
 ```markdown
 # PR triage — [repo] — [date]
@@ -111,10 +111,10 @@ See [examples.md](examples.md) for a filled-in sample.
 ### 1. Triage — assess all open PRs
 
 **Step 1 — Gather (one pass):**
-- [ ] `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100`
-- [ ] For each PR: `gh pr diff <number>` — complete all diffs before concluding
-- [ ] Optional overlap report: save JSON to scratch, run `python scripts/pr-overlap.py scratch/prs.json` (see [reference.md](reference.md))
-- [ ] Helper scripts and intermediate JSON stay in scratch — never commit to the repo
+- [ ] `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100` (Note: for large repositories with >100 open PRs, increase limit e.g. `--limit 200` to avoid truncating).
+- [ ] For each PR: `gh pr diff <number>` — complete all diffs before concluding.
+- [ ] **Overlap detection** (Optional): Save the PR list JSON into scratch, then execute the overlap script `python <skill_dir>/scripts/pr-overlap.py <path_to_json>` to find which PRs touch identical files.
+- [ ] Helper scripts and intermediate JSON stay in scratch — never commit to the repo.
 
 **Step 2 — Analyse:**
 - [ ] AI checklist on every AI-generated PR
@@ -160,7 +160,8 @@ Only when the user explicitly requests auto-merge or "merge if clean" for **one*
 - [ ] Full workflow 2
 - [ ] All [safety rules](#safety-rules) pass
 - [ ] `gh pr review <number> --approve`
-- [ ] `gh pr merge <number> --squash --delete-branch` (or method per [reference.md](reference.md#merge-methods))
+- [ ] Determine the preferred merge method (squash, rebase, or merge commit) from `AGENTS.md`, repository settings, or [reference.md](reference.md#merge-methods).
+- [ ] `gh pr merge <number> [merge-method-flag] --delete-branch` (e.g. `--squash` or `--rebase`)
 - [ ] Verify: `gh pr view <number> --json state,mergedAt`
 - [ ] If not approve → stop; do not merge
 
@@ -168,13 +169,15 @@ Only when the user explicitly requests auto-merge or "merge if clean" for **one*
 
 - [ ] `gh pr view <number> --json isDraft,mergeable,reviewDecision,statusCheckRollup`
 - [ ] Safety rules pass
-- [ ] `gh pr merge <number> --squash --delete-branch` (default; see reference for alternatives)
+- [ ] Determine the preferred merge method from `AGENTS.md`, repository settings, or [reference.md](reference.md#merge-methods).
+- [ ] `gh pr merge <number> [merge-method-flag] --delete-branch`
 - [ ] Verify merged state (same as workflow 3)
 
 ### 5. Handle rejected PRs
 
-**Fixable** — comment with exact fixes; leave open:
+**Fixable / Minor Feedback** — For small nits, draft PRs, or minor non-blocking feedback, leave a plain comment and keep the PR open:
 `gh pr comment <number> --body "..."`
+(For major blocking issues on non-draft PRs, use the standard review with `--request-changes`).
 
 **Duplicate / subset** — close naming the winning PR:
 `gh pr close <number> --comment "Closing in favour of #X …"`
@@ -213,12 +216,13 @@ When delivering the final status after executing a merge plan:
 
 ## Safety rules
 
-- Never merge a draft (`isDraft: true`)
-- Never merge if required CI checks are failing (if branch protection is unclear, list failing checks and ask)
+- Never merge a draft (`isDraft: true`).
+- Never merge if required CI checks are failing (if branch protection is unclear, list failing checks and ask).
+- Never merge if `mergeable` is `BEHIND` (needs update) or `CONFLICTING`. Always update the branch first using fallback API when needed (see [Branch updates](#branch-updates-before-merge)) and wait for CI to pass.
 - If `statusCheckRollup` is empty and no required checks are configured on the repo: treat as **no CI gate**. Require local test runs (`npm test` or equivalent) before and after batch merges, and note in the triage table CI column as `none (local only)`.
-- Never merge to a non-default base without user confirmation
-- Always comment when closing a PR (authors may be agents that read comments to self-correct)
-- Batch merges only after explicit user approval of the triage plan
+- Never merge to a non-default base without user confirmation.
+- Always comment when closing a PR (authors may be agents that read comments to self-correct).
+- Batch merges only after explicit user approval of the triage plan.
 
 ## Additional resources
 

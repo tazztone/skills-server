@@ -3,7 +3,7 @@
 ## Sample triage output
 
 ```markdown
-# PR triage — acme/widgets — 2026-05-29
+# PR triage — acme/widgets — [date]
 
 ## Merge order
 1. #38 — fix auth regression; blocks #42 on `src/foo.ts`
