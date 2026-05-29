@@ -25,8 +25,17 @@ No hallucinated imports. Webhook API verified. No artefacts.
 ### Verdict
 **Request changes** — fix blockers.
 
-## Quick commands
+## Sample Workflow 6 Execution Log
 ```bash
-gh pr review 42 --request-changes --body "[comment body]"
-gh pr close 39 --comment "Closing in favour of #38"
+# Verify mergeability of first PR in queue
+gh pr view 38 --json mergeable
+# Merge with squash and delete the head branch
+gh pr merge 38 --squash --delete-branch
+# Update the subsequent PR branch which is now BEHIND
+gh pr update-branch 42
+# Merge updated PR after CI/local test passes
+gh pr merge 42 --squash --delete-branch
+# Verify on local main branch
+git checkout main && git pull
+npm test
 ```
