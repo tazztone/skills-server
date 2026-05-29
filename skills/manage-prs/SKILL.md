@@ -1,230 +1,110 @@
 ---
 name: manage-prs
-description: Review, triage, approve, reject, and merge GitHub pull requests, including AI-generated PRs. Use when the user wants to review PRs, merge a PR, assess all open PRs, close a bad PR, request changes, auto-merge clean PRs, or plan a merge strategy across a repository. Do not use for babysitting a single PR through CI and comments — use babysit instead.
-disable-model-invocation: true # Prevent automatic background sub-agent invocation to maintain step-by-step shell execution control.
+description: Triage, review, and merge GitHub PRs, including AI-generated PRs. Use for batch triage or single PR merges.
+disable-model-invocation: true # Forces manual shell execution to keep agent control.
 ---
 
 # Manage PRs
 
-GitHub PR operations across one or many pull requests. Read repo-specific rules from `AGENTS.md` at the repository root when present. Overwrite merge methods, buckets, and CI/review gates as prescribed in `AGENTS.md` to ensure local alignment.
-
-`gh` needs network access and appropriate repo permissions. If any command fails with auth/token expiration errors (e.g. `401 Unauthorized` or expired credential errors), immediately stop the workflow, report the error, and prompt the user to re-authenticate.
+Multi-PR triage and merges via `gh`. If `gh` auth expires (401), stop and ask user. Read `AGENTS.md` at root for custom merge rules, CI gates, and reviewer rules.
 
 ## Scope
-
-| Use this skill | Use another skill |
-|----------------|-------------------|
-| Triage all open PRs, merge planning, approve/close/merge | **babysit** — one PR stuck on CI, conflicts, or review threads |
-| Review verdicts and GitHub actions | **review** — deep code-quality review without GitHub ops (if available) |
-
-For `gh pr create` and HEREDOC bodies, follow project or user PR-creation rules when they exist.
-
-## When to use which workflow
-
-| User intent | Workflow | Merge? |
-|-------------|----------|--------|
-| "Triage open PRs" / "plan merges" | 1. Triage | No — plan only |
-| "Review #N" | 2. Review | No — unless user also asks to merge |
-| "Auto-merge #N" / "merge if clean" | 3. Auto-merge | Yes — single PR only |
-| "Merge #N" (already approved) | 4. Merge | Yes — single PR |
-| Close / reject handling | 5. Handle rejected | Close only when appropriate |
-| "Execute the plan" / "run the merges" | 6. Execute plan | Yes — after explicit user confirmation |
-
-Never merge during triage (workflow 1). Never batch-merge without user confirmation (workflow 6).
-
-## Quick start
-
-```bash
-gh pr list
-gh pr diff 42
-gh pr view 42 --comments
-gh pr view 42 --json mergeable,isDraft,reviewDecision,statusCheckRollup
-```
-
-## Detect AI-generated PRs
-
-Run the AI checklist when any of these apply:
-
-- `author.login` ends with `[bot]` or is a known agent account (e.g. `jules`, `cursor`, `dependabot`)
-- PR body/description contains "created automatically by Jules", "Co-authored-by: ...[bot]", or similar indicator of agent creation
-- Commits are authored by `google-labs-jules[bot]` (or similar) even when the PR author is listed as a human
-- PR labels mention an agent or automation
-- Description/body states the PR was opened by an agent
-
-When unsure, treat as AI-generated and apply the checklist.
-
-## AI-generated PR checklist
-
-Run **before** the standard review rubric when the PR is AI-generated (see above).
-
-- **Hallucinated imports / functions** — do all imported modules, functions, and types exist? `grep` unfamiliar identifiers.
-- **Over-scoping** — does the diff exceed what the description justifies? (Also covered under scope creep in the standard rubric.)
-- **Cross-PR conflicts** — does this PR overlap another open PR on the same files? Use triage file lists or [overlap detection](reference.md#overlap-and-duplicates).
-- **Invented APIs** — do library calls match the installed version? Check `package.json` / lockfile / docs.
-- **Plausible-but-wrong logic** — read the core logic path, not just the diff surface.
-- **Committed artefacts** — `.orig`, `.diff`, debug output, temp files → comment; do not merge until removed.
-
-## Standard review rubric
-
-- **Correctness** — does the code match the PR description?
-- **Tests** — new behaviour covered? Existing tests still passing?
-- **Breaking changes** — public API, config, or schema without migration?
-- **Scope creep** — unrelated changes in the diff?
-- **Security** — secrets, unchecked inputs, risky new dependencies?
-- **Style** — consistent with surrounding code? (Nits: comment, don’t block.)
-
-## Verdicts and `gh` commands
-
-| Verdict | Meaning | Action |
-|---------|---------|--------|
-| **Approve** | Ready to merge (subject to safety rules) | `gh pr review <n> --approve` |
-| **Request changes** | Fixable issues; keep PR open | `gh pr review <n> --request-changes --body "..."` |
-| **Comment only** | Feedback without blocking | `gh pr review <n> --comment --body "..."` |
-| **Reject (close)** | Duplicate, out of scope, or unrecoverable | Workflow 5 — `gh pr close` with explanation |
-
-"Reject" is not a `gh pr review` flag. Use request-changes for fixable work; close only when appropriate.
-
-## Triage output template
-
-Write to a **scratch path only** (never commit): e.g. `/tmp/pr-triage-[repo]-YYYYMMDD-[suffix].md` (use a unique suffix or timestamp to avoid collisions in multi-session environments).
-
-```markdown
-# PR triage — [repo] — [date]
-
-## Merge order
-1. #… — reason
-2. #…
-
-## Table
-
-| PR | Author | Bucket | CI | Overlaps | Notes | Action |
-|----|--------|--------|----|-----------|-------|--------|
-| #42 | @jules[bot] | Blocked | failing | #38 (`src/foo.ts`) | … | Merge after #38 |
-
-Buckets: **Merge-ready** | **Needs review** | **Blocked** | **Reject**
-```
-
-See [examples.md](examples.md) for a filled-in sample.
+- **Use this**: Batch triage, merge planning, and sequential merges/closes.
+- **Use babysit**: Single PR stuck on CI, conflicts, or comment threads.
 
 ## Workflows
 
-### 1. Triage — assess all open PRs
+| Intent | Workflow | Merges? |
+|---|---|---|
+| Triage / plan | 1. Triage | No |
+| Review #N | 2. Review | No |
+| Auto-merge #N | 3. Auto-merge | Yes (single) |
+| Merge #N | 4. Merge | Yes (single) |
+| Close / Reject | 5. Close/Comment | Close only |
+| Execute plan | 6. Execute plan | Yes (after confirmation) |
 
-**Step 1 — Gather (one pass):**
-- [ ] `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100` (Note: for large repositories with >100 open PRs, increase limit e.g. `--limit 200` to avoid truncating).
-- [ ] For each PR: `gh pr diff <number>` — complete all diffs before concluding.
-- [ ] **Overlap detection** (Optional): Save the PR list JSON into scratch, then execute the overlap script `python <skill_dir>/scripts/pr-overlap.py <path_to_json>` to find which PRs touch identical files.
-- [ ] Helper scripts and intermediate JSON stay in scratch — never commit to the repo.
-
-**Step 2 — Analyse:**
-- [ ] AI checklist on every AI-generated PR
-- [ ] If `files` is empty or `gh pr diff` is empty, verify using `git show <head-sha> --stat`. If diff is truly empty, classify into **Reject** bucket and close with an explanation.
-- [ ] File overlaps and duplicates per [reference.md](reference.md#overlap-and-duplicates)
-- [ ] **Semantic conflict pairs** — check for non-git logical conflicts between PRs:
-  - **Behavior vs test PRs** — one PR removes/changes an API/behavior, while another adds tests for that old behavior (targeting the same component/file).
-  - **Logging vs assertions** — one PR silences or removes errors/logging, while another asserts `console.error` or specific log output.
-  - Action: Flag as **Blocked** until resolved, combined, or reordered (e.g. implementing the behavior change first, or merging as a single PR).
-- [ ] Classify each PR (buckets below)
-
-**Step 3 — Deliver plan:**
-- [ ] Write triage doc using template above
-- [ ] Wait for user confirmation before any merge/close/approve
-
-**Buckets:**
-
-| Bucket | Criteria |
-|--------|----------|
-| Merge-ready | CI passing, approved, `mergeable` not `CONFLICTING`, not draft |
-| Needs review | No approval yet, or changes requested |
-| Blocked | CI failing, conflicts, file overlap, or semantic conflicts with another open PR |
-| Reject | Stale, out of scope, duplicate/subset, empty diff/commit, or unfixable quality |
-
-**Merge order:**
-- Fixes before features; smaller before larger; unblock dependencies first.
-- When two PRs overlap, merge the simpler one first.
-- For the same file: merge **production code** before **tests** that target old behavior, or merge only the PR that combines/handles both correctly.
-- When one PR removes behavior and another tests that removed behavior: **close/rebase** the test PR; do not merge both.
-
-### 2. Review — read and comment on a PR
-
-- [ ] `gh pr diff <number>` and `gh pr view <number> --comments`
-- [ ] AI checklist if AI-generated
-- [ ] Standard rubric
-- [ ] Post review: `gh pr review <number> --comment --body "..."` (or `--approve` / `--request-changes`)
-- [ ] State verdict using table above — do not merge unless user asked
-
-### 3. Auto-merge — review and merge one PR
-
-Only when the user explicitly requests auto-merge or "merge if clean" for **one** PR.
-
-- [ ] Full workflow 2
-- [ ] All [safety rules](#safety-rules) pass
-- [ ] `gh pr review <number> --approve`
-- [ ] Determine the preferred merge method (squash, rebase, or merge commit) from `AGENTS.md`, repository settings, or [reference.md](reference.md#merge-methods).
-- [ ] `gh pr merge <number> [merge-method-flag] --delete-branch` (e.g. `--squash` or `--rebase`)
-- [ ] Verify: `gh pr view <number> --json state,mergedAt`
-- [ ] If not approve → stop; do not merge
-
-### 4. Merge — already-approved PR
-
-- [ ] `gh pr view <number> --json isDraft,mergeable,reviewDecision,statusCheckRollup`
-- [ ] Safety rules pass
-- [ ] Determine the preferred merge method from `AGENTS.md`, repository settings, or [reference.md](reference.md#merge-methods).
-- [ ] `gh pr merge <number> [merge-method-flag] --delete-branch`
-- [ ] Verify merged state (same as workflow 3)
-
-### 5. Handle rejected PRs
-
-**Fixable / Minor Feedback** — For small nits, draft PRs, or minor non-blocking feedback, leave a plain comment and keep the PR open:
-`gh pr comment <number> --body "..."`
-(For major blocking issues on non-draft PRs, use the standard review with `--request-changes`).
-
-**Duplicate / subset** — close naming the winning PR:
-`gh pr close <number> --comment "Closing in favour of #X …"`
-
-**Out of scope / unrecoverable** — close with clear reason (always comment)
-
-### 6. Execute merge plan
-
-After user confirms workflow 1 plan:
-
-- [ ] Task list: one item per merge, comment, or close
-- [ ] Sequential execution; `gh pr update-branch <number>` when branch is behind base. If `gh pr update-branch` is unavailable in the environment, fallback to:
-  - `gh api repos/{owner}/{repo}/pulls/{number}/update-branch -f merge_method=rebase` (when enabled on the repository), or
-  - Note in the execution report that the branch will merge with a merge commit, or that manual rebasing is required.
-- [ ] Re-check safety rules before each merge
-- [ ] On failure → stop and report; do not continue
-
-After the last merge (Post-merge verification):
-- [ ] `git checkout main && git pull` (or the default base branch)
-- [ ] Run the repository test command (e.g., `npm test`, `npm run test`, or equivalent test script). If tests fail, stop and repair the failure before declaring completion.
-- [ ] Formulate and deliver an [Execution report](#execution-report) listing merged count, closed count, final test result, and any direct commits made to repair the branch.
-
-## Execution report template
-
-When delivering the final status after executing a merge plan:
-
-```markdown
-### Execution report
-- **Merged**: #… (in order: squash/rebase)
-- **Closed**: #… (reason: empty/duplicate/bad-logic)
-- **Skipped**: #… (reason: conflicts/needs manual work)
-- **Post-merge verification**:
-  - Tests run: [pass/fail]
-  - Commits pushed to main: e.g. `04371ee` (repair of failing test)
+## Quick start
+```bash
+gh pr list
+gh pr diff 42
+gh pr view 42 --comments --json mergeable,isDraft,reviewDecision,statusCheckRollup
 ```
 
-## Safety rules
+## AI Checklist
+Run when `author` is bot, description has bot signature (e.g. Jules), commits are by `google-labs-jules[bot]`, or labeled automated.
+- **Hallucinations**: Verify all imports, APIs, and libraries. `grep` unfamiliar identifiers.
+- **Over-scoping**: Diff must not exceed description.
+- **Conflicts**: Check overlaps on same files.
+- **Wrong logic**: Read core logic, not just diff.
+- **Artefacts**: Ensure no debug or temp files.
 
-- Never merge a draft (`isDraft: true`).
-- Never merge if required CI checks are failing (if branch protection is unclear, list failing checks and ask).
-- Never merge if `mergeable` is `BEHIND` (needs update) or `CONFLICTING`. Always update the branch first using fallback API when needed (see [Branch updates](#branch-updates-before-merge)) and wait for CI to pass.
-- If `statusCheckRollup` is empty and no required checks are configured on the repo: treat as **no CI gate**. Require local test runs (`npm test` or equivalent) before and after batch merges, and note in the triage table CI column as `none (local only)`.
-- Never merge to a non-default base without user confirmation.
-- Always comment when closing a PR (authors may be agents that read comments to self-correct).
-- Batch merges only after explicit user approval of the triage plan.
+## Standard Rubric
+- **Correctness**: Diff matches description.
+- **Tests**: New behavior covered; existing tests pass.
+- **Safety**: No secrets, breaking config, or unvetted dependencies.
+
+## Verdicts & Commands
+- **Approve**: `gh pr review <n> --approve`
+- **Request changes**: `gh pr review <n> --request-changes --body "..."`
+- **Comment**: `gh pr comment <n> --body "..."` (plain comment for small nits/drafts).
+- **Reject**: `gh pr close <n> --comment "Closing because..."`
+
+## 1. Triage
+1. **Gather**: `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100` (increase `--limit` for large repos).
+2. **Diffs**: `gh pr diff <n>` for each.
+3. **Overlaps**: Run `python <skill_dir>/scripts/pr-overlap.py <path_to_json>`.
+4. **Analyse**: Apply checklists. If empty diff, verify via `git show <head-sha> --stat`, classify as **Reject**, and close.
+5. **Semantic Conflicts**: Mark **Blocked** if:
+   - Behavior changes but other PR tests old behavior.
+   - Logging is silenced but other PR asserts it.
+6. **Deliver Plan**: Write to `/tmp/pr-triage-[repo]-YYYYMMDD-[suffix].md`. Do not merge without user approval.
+
+### Buckets
+- **Merge-ready**: Approved, CI green, `MERGEABLE`.
+- **Needs review**: Untriaged or needs fixes.
+- **Blocked**: Failing CI, git conflicts, file overlaps, or semantic conflicts.
+- **Reject**: Duplicate, empty, stale, or buggy.
+
+### Merge Order
+- Fixes → features. Smaller → larger. Unblock deps.
+- For same file: merge production code before tests.
+- Opposite intents: close/rebase test PR; do not merge both.
+
+## 2. Review
+- Run AI + Standard rubrics on diff + comments.
+- Submit review with exact verdict.
+
+## 3. Auto-merge
+- Run full Review. Verify safety rules.
+- Approve and merge using repo/AGENTS.md method (`--squash`, `--rebase`, `--merge`) and `--delete-branch`.
+
+## 4. Merge
+- Verify safety rules. Merge using repo/AGENTS.md method + `--delete-branch`.
+
+## 5. Close/Comment
+- **Fixable**: Comment on fixes via plain `gh pr comment`. Keep open.
+- **Duplicate/Out of Scope**: Close with clear comment citing winner.
+
+## 6. Execute Plan
+- Sequentially merge/close as approved.
+- Update behind branches: `gh pr update-branch <n>`. Fallback: `gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=rebase`.
+- **Post-merge**: Checkout/pull default branch, run tests (e.g. `npm test`), fix any breakage.
+- Deliver execution report:
+```markdown
+### Execution report
+- **Merged**: #...
+- **Closed**: #...
+- **Skipped**: #...
+- **Post-merge verification**: Tests [pass/fail]. Commits: [shas]
+```
+
+## Safety Rules
+- Never merge drafts or branches that are `BEHIND` / `CONFLICTING` without updating first.
+- Never merge if required CI fails.
+- No CI gate fallback: If `statusCheckRollup` is empty, run tests locally before and after merges; note CI in table as `none (local only)`.
+- Never merge to non-default base or batch merge without user approval.
+- Always comment when closing.
 
 ## Additional resources
-
 - [examples.md](examples.md) — sample triage table and review comment
 - [reference.md](reference.md) — CI fields, merge methods, overlap/duplicate rules, overlap script
