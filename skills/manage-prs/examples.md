@@ -39,3 +39,8 @@ gh pr merge 42 --squash --delete-branch
 git checkout main && git pull
 npm test
 ```
+
+## Quick Command Reference
+- **Approve**: `gh pr review <n> --approve`
+- **Request Changes**: `gh pr review <n> --request-changes --body "Fix blockers 1-2"`
+- **Close**: `gh pr close <n> --comment "Closing in favour of #X"`

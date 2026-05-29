@@ -24,7 +24,7 @@
 ## Overlaps & Duplicates
 - **Overlap**: Shared file paths in `files` for PRs targeting the same `baseRefName` → block and sequence.
 - **Duplicate**: Same title/description, or files set is subset of another. Merge complete PR, close subset.
-- **Overlap Script**: `python /home/tazztone/_coding/skills-server/skills/manage-prs/scripts/pr-overlap.py <path_to_prs_json>`
+- **Overlap Script**: Discovered dynamically (e.g. `python $(find ~ -name pr-overlap.py -maxdepth 8 2>/dev/null | head -1) <path_to_prs_json>`).
 
 ## Branch Updates
 - If branch is `BEHIND`: `gh pr update-branch <n>`.
