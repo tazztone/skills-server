@@ -67,6 +67,13 @@ When `mergeable` is `BEHIND` or checks failed after base moved:
 gh pr update-branch <n>
 ```
 
+If `gh pr update-branch` is not supported/available in the installed `gh` CLI version, fallback to:
+
+```bash
+gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=rebase
+```
+*(Replace `{owner}`, `{repo}`, and `{n}` with target values; requires rebase merges to be enabled on the repository).*
+
 Wait for CI, re-run safety checks, then merge.
 
 ## Permissions

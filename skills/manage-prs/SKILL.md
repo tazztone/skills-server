@@ -46,6 +46,8 @@ gh pr view 42 --json mergeable,isDraft,reviewDecision,statusCheckRollup
 Run the AI checklist when any of these apply:
 
 - `author.login` ends with `[bot]` or is a known agent account (e.g. `jules`, `cursor`, `dependabot`)
+- PR body/description contains "created automatically by Jules", "Co-authored-by: ...[bot]", or similar indicator of agent creation
+- Commits are authored by `google-labs-jules[bot]` (or similar) even when the PR author is listed as a human
 - PR labels mention an agent or automation
 - Description/body states the PR was opened by an agent
 
@@ -116,7 +118,12 @@ See [examples.md](examples.md) for a filled-in sample.
 
 **Step 2 — Analyse:**
 - [ ] AI checklist on every AI-generated PR
+- [ ] If `files` is empty or `gh pr diff` is empty, verify using `git show <head-sha> --stat`. If diff is truly empty, classify into **Reject** bucket and close with an explanation.
 - [ ] File overlaps and duplicates per [reference.md](reference.md#overlap-and-duplicates)
+- [ ] **Semantic conflict pairs** — check for non-git logical conflicts between PRs:
+  - **Behavior vs test PRs** — one PR removes/changes an API/behavior, while another adds tests for that old behavior (targeting the same component/file).
+  - **Logging vs assertions** — one PR silences or removes errors/logging, while another asserts `console.error` or specific log output.
+  - Action: Flag as **Blocked** until resolved, combined, or reordered (e.g. implementing the behavior change first, or merging as a single PR).
 - [ ] Classify each PR (buckets below)
 
 **Step 3 — Deliver plan:**
@@ -129,10 +136,14 @@ See [examples.md](examples.md) for a filled-in sample.
 |--------|----------|
 | Merge-ready | CI passing, approved, `mergeable` not `CONFLICTING`, not draft |
 | Needs review | No approval yet, or changes requested |
-| Blocked | CI failing, conflicts, or file overlap with another open PR |
-| Reject | Stale, out of scope, duplicate/subset, or unfixable quality |
+| Blocked | CI failing, conflicts, file overlap, or semantic conflicts with another open PR |
+| Reject | Stale, out of scope, duplicate/subset, empty diff/commit, or unfixable quality |
 
-**Merge order:** fixes before features; smaller before larger; unblock dependencies first; when two PRs overlap, merge the simpler one first.
+**Merge order:**
+- Fixes before features; smaller before larger; unblock dependencies first.
+- When two PRs overlap, merge the simpler one first.
+- For the same file: merge **production code** before **tests** that target old behavior, or merge only the PR that combines/handles both correctly.
+- When one PR removes behavior and another tests that removed behavior: **close/rebase** the test PR; do not merge both.
 
 ### 2. Review — read and comment on a PR
 
@@ -175,14 +186,36 @@ Only when the user explicitly requests auto-merge or "merge if clean" for **one*
 After user confirms workflow 1 plan:
 
 - [ ] Task list: one item per merge, comment, or close
-- [ ] Sequential execution; `gh pr update-branch <number>` when branch is behind base
+- [ ] Sequential execution; `gh pr update-branch <number>` when branch is behind base. If `gh pr update-branch` is unavailable in the environment, fallback to:
+  - `gh api repos/{owner}/{repo}/pulls/{number}/update-branch -f merge_method=rebase` (when enabled on the repository), or
+  - Note in the execution report that the branch will merge with a merge commit, or that manual rebasing is required.
 - [ ] Re-check safety rules before each merge
 - [ ] On failure → stop and report; do not continue
+
+After the last merge (Post-merge verification):
+- [ ] `git checkout main && git pull` (or the default base branch)
+- [ ] Run the repository test command (e.g., `npm test`, `npm run test`, or equivalent test script). If tests fail, stop and repair the failure before declaring completion.
+- [ ] Formulate and deliver an [Execution report](#execution-report) listing merged count, closed count, final test result, and any direct commits made to repair the branch.
+
+## Execution report template
+
+When delivering the final status after executing a merge plan:
+
+```markdown
+### Execution report
+- **Merged**: #… (in order: squash/rebase)
+- **Closed**: #… (reason: empty/duplicate/bad-logic)
+- **Skipped**: #… (reason: conflicts/needs manual work)
+- **Post-merge verification**:
+  - Tests run: [pass/fail]
+  - Commits pushed to main: e.g. `04371ee` (repair of failing test)
+```
 
 ## Safety rules
 
 - Never merge a draft (`isDraft: true`)
 - Never merge if required CI checks are failing (if branch protection is unclear, list failing checks and ask)
+- If `statusCheckRollup` is empty and no required checks are configured on the repo: treat as **no CI gate**. Require local test runs (`npm test` or equivalent) before and after batch merges, and note in the triage table CI column as `none (local only)`.
 - Never merge to a non-default base without user confirmation
 - Always comment when closing a PR (authors may be agents that read comments to self-correct)
 - Batch merges only after explicit user approval of the triage plan
