@@ -55,30 +55,31 @@ Use when the user names a specific PR (e.g. "merge PR #42", "close PR #7").
 
 Use when managing multiple PRs (e.g. "triage PRs", "clean up PR queue").
 
-### Step 1: Gather
+### Step 1: Gather and detect overlaps
 ```bash
 gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files \
-  --limit 100 > prs.json
-```
-The `files` field is required for overlap detection. Also read `AGENTS.md` for merge overrides if it exists.
-
-### Step 2: Detect overlaps
-```bash
-python3 -c "
-import json, collections
-data = json.load(open('prs.json'))
+  --limit 100 | tee prs.json | python3 -c "
+import json, sys, collections
+data = json.load(sys.stdin)
 by_file = collections.defaultdict(list)
 for pr in data:
     for f in pr.get('files', []):
         if isinstance(f, dict) and 'path' in f:
             by_file[f['path']].append(pr['number'])
-for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
-    if len(ns) > 1: print(f'{p}: {ns}')
+overlaps = [(p, ns) for p, ns in by_file.items() if len(ns) > 1]
+if overlaps:
+    print('OVERLAPPING FILES:')
+    for p, ns in sorted(overlaps, key=lambda x: -len(x[1])):
+        print(f'  {p}: PRs {ns}')
+else:
+    print('No file overlaps detected.')
 "
 ```
+This saves `prs.json` AND pipes to overlap detection in one shot.
 Overlapping PRs need sequenced merging — merge the simpler one first, re-check conflicts on the other.
+Also read `AGENTS.md` for merge overrides if it exists.
 
-### Step 3: Per-PR health check
+### Step 2: Per-PR health check
 For each PR:
 1. **Mergeability** — must be `MERGEABLE`. Re-query `UNKNOWN` up to 3×, skip `CONFLICTING`.
 2. **CI** — all status checks green?
@@ -87,7 +88,7 @@ For each PR:
 5. **Diff** — `gh pr diff <n>`: logic correct, no obvious breakage?
 6. **Bot/AI** — if automated author, grep unfamiliar identifiers in the codebase.
 
-### Step 4: Triage report
+### Step 3: Triage report
 Write results to a plan file. Group PRs into:
 - ✅ **Merge-ready** — CI green, diff verified, no conflicts
 - ⚠️ **Needs action** — blocked by conflict / CI / review
