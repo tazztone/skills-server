@@ -44,7 +44,7 @@ For automated/bot PRs (e.g. Jules):
 *Do not bucket a PR without reading its diff and verifying the logic.*
 
 1. **Gather**: `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100` > `prs.json`
-2. **Detect Overlaps**: Run the helper script located in the parent directory of this skill:
+2. **Detect Overlaps**: Run the helper script (check `~/.agents/skills/manage-prs/scripts/pr-overlap.py` or `<path_to_manage-prs_skill>/scripts/pr-overlap.py`):
    ```bash
    python3 <path_to_manage-prs_skill>/scripts/pr-overlap.py prs.json
    ```
