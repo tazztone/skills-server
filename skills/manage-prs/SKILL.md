@@ -15,7 +15,7 @@ Default merge: `--squash --delete-branch`. Check `AGENTS.md` if it exists — it
 ## DO NOT
 
 - Explore the repo (`ls`, `tree`, `git branch`, check directories) — irrelevant to PR management
-- Create plan files or write analysis to disk — present the triage report directly in chat
+- Do exploratory research before triaging — go straight to gathering PRs
 - Ask the user "which approach" — determine workflow from context, then execute it
 - Skip reading diffs — CI green alone is NOT sufficient
 - Merge when mergeable is `UNKNOWN` — re-query until it resolves (see gotchas below)
@@ -88,7 +88,7 @@ For each PR:
 6. **Bot/AI** — if automated author, grep unfamiliar identifiers in the codebase.
 
 ### Step 4: Triage report
-Present in chat:
+Write results to a plan file. Group PRs into:
 - ✅ **Merge-ready** — CI green, diff verified, no conflicts
 - ⚠️ **Needs action** — blocked by conflict / CI / review
 - 🔁 **Stale** — no activity > threshold
