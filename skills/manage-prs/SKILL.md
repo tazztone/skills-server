@@ -38,6 +38,9 @@ Default merge: `--squash --delete-branch`. Check `AGENTS.md` if it exists — it
 
 **`gh pr create` body must use `--body-file`.** Write body to a tmpfile, pass `--body-file`. Never inline `--body`.
 
+**"Base branch was modified" on merge.** Each merge changes the base branch, so the next merge may fail.
+Merge PRs one at a time. On this error, simply retry the same merge command.
+
 ---
 
 ## Single-PR Workflow
