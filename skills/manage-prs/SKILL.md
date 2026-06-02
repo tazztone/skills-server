@@ -2,133 +2,90 @@
 name: manage-prs
 description: >
   Triage, review, and merge GitHub PRs, including AI-generated PRs.
-  Use for batch triage or single PR merges.
+  Use for batch triage, single PR merge, PR queue cleanup, closing stale PRs,
+  or when user mentions "manage PRs", "merge PR", "triage PRs", "PR backlog".
 disable-model-invocation: true
 ---
 
 # Manage PRs
 
 Use `gh` for all operations. Stop and ask the user on: 401, 403, 422, or network timeout.
-Default merge method: `--squash --delete-branch`. Check `AGENTS.md` first — it overrides all merge method defaults.
+Default merge method: `--squash --delete-branch`. Check `AGENTS.md` first — it overrides merge defaults.
+
+**Before running any `gh` command**, read [REFERENCE.md](REFERENCE.md) for critical gotchas that cause silent failures.
 
 ---
 
-## Gotchas & Landmines
+## Single-PR Workflow
 
-### `--json comments` crashes `gh pr view`
-Use `--json body,comments` — **not** the `--comments` flag. The flag crashes.
+Use when the user names a specific PR (e.g. "merge PR #42", "close PR #7").
 
-### `UNKNOWN` mergeability is a hard block
-GitHub computes mergeability asynchronously and temporarily returns `UNKNOWN`. **Never merge `UNKNOWN`.**
-Re-query with `gh pr view <n> --json mergeable` until it resolves to `MERGEABLE` before proceeding.
-
-### `gh pr update-branch` does not exist
-The native command `gh pr update-branch` will fail with an unknown command error.
-* **Correct update path:** Always use the raw GitHub API endpoint:
-  ```bash
-  gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=squash
-  ```
-* **Fallback (rebase):** If a clean fast-forward update fails:
-  ```bash
-  gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=rebase
-  ```
-
-### `gh pr create` body must use `--body-file`
-Never pipe PR body content via stdin or inline `--body`. Write to a temp file first:
+### Step 1: Health check
 ```bash
-BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/pr-body.XXXXXX")
-cat > "$BODY_FILE" <<'__END__'
-<body content here>
-__END__
-gh pr create --title "<TITLE>" --body-file "$BODY_FILE"
+gh pr view <n> --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,body
 ```
+Evaluate: mergeable (`MERGEABLE` required — see REFERENCE.md), CI green, review decision, draft status.
 
-### Structural/cache-layer PRs are systemic blockers
-PRs altering service workers (`sw.js`), architectural caching, or app-layer config have cascading side effects.
-Group these, isolate the ideal structural layout first, and reject/close alternates — don't chain-merge blindly.
-
-### Avoid sequential multi-query bloat
-Do not re-fetch `gh pr list` and loop every metadata profile after every merge.
-Group non-overlapping merge-ready PRs into a batch queue, test once, execute sequentially, sync at the end.
-
-### Script path is runtime-dynamic
-Do not assume a fixed install path for `pr-overlap.py`. Discover it at runtime:
+### Step 2: Read the diff
 ```bash
-python3 $(find ~ -name pr-overlap.py -maxdepth 8 2>/dev/null | head -1) prs.json
+gh pr diff <n>
 ```
-Fallback one-liner if the script is missing:
-```bash
-python3 -c "import json, collections; data = json.load(open('prs.json')); by_file = collections.defaultdict(list); [(by_file[f['path']].append(pr['number']) for f in pr.get('files', []) if isinstance(f, dict) and 'path' in f) for pr in data if 'number' in pr]; [print(f'{p}: {ns}') for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])) if len(ns) > 1]"
-```
+CI green is not sufficient. Verify logic, imports, and API usage. For bot/AI PRs, grep unfamiliar identifiers in the codebase.
 
-### `gh pr list` silently caps at 100
-Always pass `--limit 100`. If the repo has more open PRs, warn the user — triage will be incomplete.
-
-### Never merge without reading the diff
-CI green is not sufficient. Always run `gh pr diff <n>` and verify the logic.
-
-### Bot/AI PRs: verify imports and APIs
-For automated PRs (e.g. Jules, Dependabot), `grep` any unfamiliar identifiers in the codebase before approving.
-Do not trust the PR description alone.
-
-### Always comment when closing
-`gh pr close <n> --comment "Closing because..."` — never close silently.
+### Step 3: Act
+- **Merge**: `gh pr merge <n> --squash --delete-branch`
+- **Close**: `gh pr close <n> --comment "Closing because..."` — never close silently
+- **Request changes**: comment with findings, or hand off to `review-pr` skill for structured review
 
 ---
 
 ## Batch Triage Workflow
 
-### Step 1: Gather PRs
+Use when managing multiple PRs (e.g. "triage PRs", "clean up PR queue").
+
+### Step 1: Gather
 ```bash
 gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files \
   --limit 100 > prs.json
 ```
-Also fetch open issues and read `AGENTS.md` for merge method overrides.
+Also read `AGENTS.md` for merge method overrides. If 100 PRs returned, warn user — triage is incomplete.
 
-### Step 2: Batch by Theme
-Group PRs into batches of 4–6 by type:
+### Step 2: Detect overlaps
+Run the overlap script from REFERENCE.md against `prs.json`. Overlapping PRs need sequenced merging.
+
+### Step 3: Batch by theme
+Group PRs into batches of 4–6:
 - Dependency bumps / automated (Dependabot, Jules, Renovate)
-- Feature additions
-- Bug fixes
+- Feature additions / bug fixes
 - Refactors / style
-- Structural / config / cache (high-risk — see landmine above)
+- Structural / config / cache (high-risk — see REFERENCE.md)
 
-### Step 3: Per-PR Health Check
+### Step 4: Per-PR health check
 For each PR, evaluate:
-1. **Review readiness** — `reviewDecision` approved or required approvals met?
-2. **Staleness** — last activity > N days? Ping author or close.
-3. **Mergeability** — `MERGEABLE` / `CONFLICTING` / `UNKNOWN` (see landmine above)
-4. **CI status** — all checks green? Any blocking failures?
-5. **Diff read** — `gh pr diff <n>`: logic correct, no obvious breakage
-6. **Bot/AI verification** — grep unfamiliar identifiers if automated author
-7. **Overlap detection** — run overlap script against `prs.json`
+1. **Mergeability** — `MERGEABLE` required (see REFERENCE.md for `UNKNOWN` handling)
+2. **CI status** — all checks green?
+3. **Review readiness** — `reviewDecision` approved?
+4. **Staleness** — no activity > 14 days? Ping author or close
+5. **Diff read** — `gh pr diff <n>`: logic correct?
+6. **Bot/AI PRs** — grep unfamiliar identifiers if automated author
 
-### Step 4: Cross-Reference Issues
-Match PRs to linked issues. Build mapping: `| Issue | PR | Relation |`
-
-### Step 5: Triage Report
-Group output into categories:
-- ✅ **Merge-ready** — conflicts clear, CI green, diff verified, reviewed
+### Step 5: Triage report
+Present grouped results to user:
+- ✅ **Merge-ready** — CI green, diff verified, reviewed, no conflicts
 - ⚠️ **Needs action** — blocked by conflict / CI failure / missing review
-- 🔁 **Stale** — no activity > threshold; recommend ping or close
+- 🔁 **Stale** — no activity > threshold
 - 🔀 **Overlapping** — file conflict risk; list affected files
-- 🤖 **Bot/AI PRs** — flagged items needing import/API verification
+- 🤖 **Bot/AI** — needs import/API verification
 - ❌ **Close candidates** — superseded, duplicate, or abandoned
 
-Walk through each PR one-by-one for merge / comment / close decision.
+Walk through each PR for merge / comment / close decision.
 
 ---
 
-## Overlap Detection
+## Cross-Skill Routing
 
-```bash
-gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files \
-  --limit 100 > prs.json
-```
-Then run the overlap script (see path discovery above).
-
----
-
-## Additional Resources
-
-- [scripts/pr-overlap.py](scripts/pr-overlap.py)
+| Situation | Hand off to |
+|-----------|-------------|
+| PR needs structured multi-perspective code review | `review-pr` |
+| PR has unresolved review threads to address | `resolve-pr-feedback` |
+| User wants to create a new PR | Use `--body-file` pattern (see REFERENCE.md) |
