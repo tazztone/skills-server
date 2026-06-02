@@ -16,8 +16,9 @@ Default merge: `--squash --delete-branch`. Check `AGENTS.md` if it exists — it
 
 - Explore the repo (`ls`, `tree`, `git branch`, check directories) — irrelevant to PR management
 - Do exploratory research before triaging — go straight to gathering PRs
-- Ask the user "which approach" — determine workflow from context, then execute it
-- Skip reading diffs — CI green alone is NOT sufficient
+- Ask the user to confirm or choose a merge strategy — write the plan, then execute it
+- Mark a PR "diff verified" without running `gh pr diff <n>` — read every diff before classifying
+- Re-fetch individual PR metadata via `gh pr view` when `prs.json` already has the data
 - Merge when mergeable is `UNKNOWN` — re-query until it resolves (see gotchas below)
 
 ---
@@ -82,24 +83,21 @@ This saves `prs.json` AND pipes to overlap detection in one shot.
 Overlapping PRs need sequenced merging — merge the simpler one first, re-check conflicts on the other.
 Also read `AGENTS.md` for merge overrides if it exists.
 
-### Step 2: Per-PR health check
-For each PR:
-1. **Mergeability** — must be `MERGEABLE`. Re-query `UNKNOWN` up to 3×, skip `CONFLICTING`.
-2. **CI** — all status checks green?
-3. **Review** — `reviewDecision` approved? (skip if repo doesn't require reviews)
-4. **Staleness** — no activity >14 days? Recommend ping or close.
-5. **Diff** — `gh pr diff <n>`: logic correct, no obvious breakage?
-6. **Bot/AI** — if automated author, grep unfamiliar identifiers in the codebase.
+### Step 2: Read every diff
+For each PR, run `gh pr diff <n>` and verify logic, imports, no obvious breakage.
+For bot/AI PRs, grep unfamiliar identifiers in the codebase.
+Do NOT skip this step — a PR cannot be classified as merge-ready without a diff read.
 
 ### Step 3: Triage report
-Write results to a plan file. Group PRs into:
-- ✅ **Merge-ready** — CI green, diff verified, no conflicts
+Use data from `prs.json` (mergeability, CI, review) plus your diff reads to classify each PR.
+Write results to a plan file:
+- ✅ **Merge-ready** — `MERGEABLE`, CI green, diff read and verified
 - ⚠️ **Needs action** — blocked by conflict / CI / review
-- 🔁 **Stale** — no activity > threshold
-- 🔀 **Overlapping** — file conflict risk with affected files listed
+- 🔁 **Stale** — no activity >14 days
+- 🔀 **Overlapping** — file conflict risk with merge order specified
 - ❌ **Close candidates** — superseded, duplicate, or abandoned
 
-Then walk through each PR one-by-one for merge / comment / close decision.
+After writing the plan, proceed to merge — do not stop and ask for confirmation.
 
 ---
 
