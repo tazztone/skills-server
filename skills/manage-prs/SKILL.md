@@ -84,7 +84,7 @@ Overlapping PRs need sequenced merging — merge the simpler one first, re-check
 Also read `AGENTS.md` for merge overrides if it exists.
 
 ### Step 2: Collect diff evidence
-Run this for every PR. It fetches diffs, hashes them, and extracts a preview — producing verifiable evidence:
+Run this for every PR. It fetches diffs, hashes them, and prints the full diff — producing verifiable evidence:
 ```bash
 for n in $(jq -r '.[].number' prs.json); do
   DIFF=$(gh pr diff "$n" 2>&1)
@@ -93,12 +93,12 @@ for n in $(jq -r '.[].number' prs.json); do
   DELS=$(printf '%s' "$DIFF" | grep -c '^-[^-]' 2>/dev/null || echo 0)
   FILES=$(printf '%s' "$DIFF" | grep -c '^diff --git' 2>/dev/null || echo 0)
   echo "=== PR #${n} | sha256:${HASH:0:16} | +${ADDS}/-${DELS} | ${FILES} files ==="
-  printf '%s' "$DIFF" | grep '^[+-][^+-]' | head -5
+  printf '%s\n' "$DIFF"
   echo ""
 done
 ```
-Each PR gets: a truncated SHA-256 hash (proof the diff was fetched), change stats, and a 5-line code preview.
-Review the preview lines for correctness. For bot/AI PRs, grep unfamiliar identifiers in the codebase.
+Each PR gets: a truncated SHA-256 hash (proof the diff was fetched), change stats, and the full diff.
+Review the full diff for correctness. For bot/AI PRs, grep unfamiliar identifiers in the codebase.
 
 ### Step 3: Triage report
 Use data from `prs.json` (mergeability, CI, review) plus the diff evidence from Step 2.
