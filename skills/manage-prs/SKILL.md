@@ -83,15 +83,27 @@ This saves `prs.json` AND pipes to overlap detection in one shot.
 Overlapping PRs need sequenced merging — merge the simpler one first, re-check conflicts on the other.
 Also read `AGENTS.md` for merge overrides if it exists.
 
-### Step 2: Read every diff
-For each PR, run `gh pr diff <n>` and verify logic, imports, no obvious breakage.
-For bot/AI PRs, grep unfamiliar identifiers in the codebase.
-Do NOT skip this step — a PR cannot be classified as merge-ready without a diff read.
+### Step 2: Collect diff evidence
+Run this for every PR. It fetches diffs, hashes them, and extracts a preview — producing verifiable evidence:
+```bash
+for n in $(jq -r '.[].number' prs.json); do
+  DIFF=$(gh pr diff "$n" 2>&1)
+  HASH=$(printf '%s' "$DIFF" | sha256sum | cut -d' ' -f1)
+  ADDS=$(printf '%s' "$DIFF" | grep -c '^+[^+]' 2>/dev/null || echo 0)
+  DELS=$(printf '%s' "$DIFF" | grep -c '^-[^-]' 2>/dev/null || echo 0)
+  FILES=$(printf '%s' "$DIFF" | grep -c '^diff --git' 2>/dev/null || echo 0)
+  echo "=== PR #${n} | sha256:${HASH:0:16} | +${ADDS}/-${DELS} | ${FILES} files ==="
+  printf '%s' "$DIFF" | grep '^[+-][^+-]' | head -5
+  echo ""
+done
+```
+Each PR gets: a truncated SHA-256 hash (proof the diff was fetched), change stats, and a 5-line code preview.
+Review the preview lines for correctness. For bot/AI PRs, grep unfamiliar identifiers in the codebase.
 
 ### Step 3: Triage report
-Use data from `prs.json` (mergeability, CI, review) plus your diff reads to classify each PR.
-Write results to a plan file:
-- ✅ **Merge-ready** — `MERGEABLE`, CI green, diff read and verified
+Use data from `prs.json` (mergeability, CI, review) plus the diff evidence from Step 2.
+Write results to a plan file. **Each merge-ready PR must include its `sha256:` hash from Step 2.**
+- ✅ **Merge-ready** — `MERGEABLE`, CI green, diff evidence hash present
 - ⚠️ **Needs action** — blocked by conflict / CI / review
 - 🔁 **Stale** — no activity >14 days
 - 🔀 **Overlapping** — file conflict risk with merge order specified
