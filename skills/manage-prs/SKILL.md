@@ -10,7 +10,7 @@ Multi-PR triage and merges via `gh`. If `gh` fails with auth (401), permission (
 
 ## Scope
 - **Use this**: Batch triage, merge planning, and sequential merges/closes.
-- **Use babysit**: Single PR stuck on CI, conflicts, or comment threads.
+- **Do not use for**: Continuous polling/babysitting of a single PR stuck on CI or active conflict resolution.
 
 ## Workflows
 
