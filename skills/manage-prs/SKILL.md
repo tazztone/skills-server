@@ -10,7 +10,7 @@ Multi-PR triage and merges via `gh`. If `gh` fails with auth (401), permission (
 
 ## Scope
 - **Use this**: Batch triage, merge planning, and sequential merges/closes.
-- **Do not use for**: Continuous polling/babysitting of a single PR stuck on CI or active conflict resolution.
+- **Do not use for**: Continuous polling/babysitting of a single PR stuck on CI or active conflict resolution (use `git mergetool` / IDE merge editor for that).
 
 ## Workflows
 
@@ -52,8 +52,13 @@ Run when `author` is bot, description has bot signature (e.g. Jules), commits ar
 ## 1. Triage
 1. **Gather**: `gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files --limit 100` (increase `--limit` for large repos).
 2. **Diffs**: `gh pr diff <n>` for each.
-3. **Overlaps**: Locate the script dynamically and run: `python $(find ~ -name pr-overlap.py -maxdepth 8 2>/dev/null | head -1) <path_to_json>`.
-4. **Analyse**: Apply checklists. If empty diff, verify via `git show <head-sha> --stat`, classify as **Reject**, and close.
+3. **Overlaps**: Run the overlap script (located alongside this skill):
+   ```bash
+   SCRIPT=$(find "$(dirname "$(realpath "$0")" 2>/dev/null || echo ~)" -path '*/manage-prs/scripts/pr-overlap.py' 2>/dev/null | head -1)
+   python "$SCRIPT" <path_to_json>
+   ```
+   If the script cannot be found, fall back to: `python $(find ~ -name pr-overlap.py -maxdepth 10 2>/dev/null | head -1) <path_to_json>`
+4. **Analyse**: Apply checklists. If empty diff, verify via `git show <head-sha> --stat` (an empty diff produces no overlap output — treat any PR with zero files as **Reject**), and close.
 5. **Semantic Conflicts**: Check if any PR modifies/silences an API, configuration, or log level. Run `grep` or `git grep` on other PR files to see if they assert old behavior, verify old signatures, or expect old output. Mark **Blocked** if conflicts exist.
 6. **Deliver Plan**: Write to `/tmp/pr-triage-[repo]-YYYYMMDD-[suffix].md` (use suffix to avoid concurrent race conditions). Do not merge without user approval.
 
@@ -93,13 +98,14 @@ Run when `author` is bot, description has bot signature (e.g. Jules), commits ar
 - Sequentially merge/close as approved.
 - Update behind branches: `gh pr update-branch <n>`. Resolve merge method following precedence rules: `AGENTS.md` -> repo settings -> default `--squash`. Fallback: `gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=rebase`.
 - **Post-merge**: Checkout/pull default branch, run tests (e.g. `npm test`), fix any breakage.
+- **Verify branch deletion**: `gh pr view <n> --json headRefName` — remote branch should be absent; or run `git branch -r` to confirm.
 - Deliver execution report:
 ```markdown
 ### Execution report
 - **Merged**: #...
 - **Closed**: #...
 - **Skipped**: #...
-- **Post-merge verification**: Tests [pass/fail]. Commits: [shas]
+- **Post-merge verification**: Tests [pass/fail]. Branch deletion: [confirmed/pending]. Commits: [shas]
 ```
 
 ## Safety Rules
@@ -112,3 +118,4 @@ Run when `author` is bot, description has bot signature (e.g. Jules), commits ar
 ## Additional resources
 - [examples.md](examples.md) — sample triage table, execution logs, and review comments
 - [reference.md](reference.md) — CI fields, merge methods, overlap/duplicate rules, overlap script
+- [scripts/pr-overlap.py](scripts/pr-overlap.py) — overlap detection script

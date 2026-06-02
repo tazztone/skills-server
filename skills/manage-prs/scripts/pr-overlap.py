@@ -38,11 +38,14 @@ def main() -> int:
         print(f"=== Target Branch: {base} ===")
         pr_files = {}
         titles = {}
-        
+
         for pr in prs:
             num = pr["number"]
             titles[num] = pr.get("title", "")
-            pr_files[num] = {f["path"] for f in pr.get("files", []) if isinstance(f, dict) and "path" in f}
+            files = pr.get("files", [])
+            if not files:
+                print(f"  Warning: PR #{num} has no files (empty diff or missing field). Classify as Reject if confirmed empty.", file=sys.stderr)
+            pr_files[num] = {f["path"] for f in files if isinstance(f, dict) and "path" in f}
 
         found = False
         for a, b in combinations(sorted(pr_files), 2):
@@ -50,13 +53,11 @@ def main() -> int:
             shared = files_a & files_b
             if not shared:
                 continue
-            
+
             found = True
-            paths = ", ".join(sorted(shared)[:5])
-            more = len(shared) - 5
-            suffix = f" (+{more} more)" if more > 0 else ""
-            print(f"#{a} <-> #{b}: {paths}{suffix}")
-            
+            paths = ", ".join(sorted(shared))
+            print(f"#{a} <-> #{b}: {paths}")
+
             if files_a and files_b:
                 if files_b.issubset(files_a):
                     print(f"  * Duplicate Candidate: #{b} is a subset of #{a}")
@@ -65,10 +66,10 @@ def main() -> int:
 
             print(f"  #{a}: {titles.get(a, '')[:72]}")
             print(f"  #{b}: {titles.get(b, '')[:72]}")
-            
+
         if not found:
             print(f"No overlaps on {base}.")
-            
+
     return 0
 
 if __name__ == "__main__":
