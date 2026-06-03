@@ -1,6 +1,6 @@
 # Manage PRs — Reference
 
-Gotchas, command patterns, and the overlap detection script. Read before running `gh` commands.
+Gotchas, command patterns, conflict resolution details, and the overlap detection script.
 
 ---
 
@@ -60,6 +60,45 @@ Group non-overlapping merge-ready PRs into a batch queue, execute sequentially, 
 
 ---
 
+## Local Conflict Resolution — Details
+
+When the diff investigation shows a PR's changes are worth preserving, resolve locally:
+
+### Standard rebase flow
+```bash
+# fetch latest state
+git fetch origin
+
+# checkout the PR branch
+git checkout -b pr-<n>-rebase origin/<pr-branch-name>
+
+# rebase onto target
+git rebase origin/<base-branch>
+
+# resolve each conflict using your diff investigation context
+# — you know what the author intended, honour that intent
+git add <resolved-files>
+git rebase --continue
+
+# push the resolved branch back
+git push --force-with-lease origin <pr-branch-name>
+
+# clean up local branch
+git checkout <base-branch>
+git branch -D pr-<n>-rebase
+```
+
+### When to abort
+- Conflict spans 5+ files with unrelated cross-cutting changes — close with comment.
+- PR's changes are superseded by a newer PR or direct commit — close with comment.
+- Rebase produces a state where CI will clearly fail (missing deps, removed APIs) — close with comment.
+
+### After resolution
+Re-check mergeability: `gh pr view <n> --json mergeable`
+Once `MERGEABLE`, merge normally: `gh pr merge <n> --squash --delete-branch`
+
+---
+
 ## Overlap Detection
 
 After gathering PRs to `prs.json`, detect file overlaps to sequence merges safely.
@@ -101,6 +140,7 @@ def main():
         print(f"=== Target Branch: {base} ===")
         pr_files = {}
         titles = {}
+
         for pr in prs:
             num = pr["number"]
             titles[num] = pr.get("title", "")
@@ -133,7 +173,6 @@ python3 "$OVERLAP_SCRIPT" prs.json
 ```
 
 ### Quick fallback one-liner
-If you don't want the full script:
 ```bash
 python3 -c "
 import json, collections
@@ -153,14 +192,16 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 
 ## Triage Report Template
 
-Use this format when presenting batch triage results:
-
 ```
 ## PR Triage Report — {repo} ({date})
 
 ### ✅ Merge-Ready
 | PR | Title | Author | CI | Review |
 |----|-------|--------|----|--------|
+
+### 🔧 Conflicts — Resolvable
+| PR | Title | Conflict Summary | Resolution Plan |
+|----|-------|------------------|-----------------|
 
 ### ⚠️ Needs Action
 | PR | Title | Blocker |

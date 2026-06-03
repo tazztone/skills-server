@@ -9,107 +9,82 @@ disable-model-invocation: true
 
 # Manage PRs
 
-Use `gh` for all operations. Stop and ask the user on: 401, 403, 422, or network timeout.
-Default merge: `--squash --delete-branch`. Check `AGENTS.md` if it exists — it overrides merge defaults.
+Use `gh` for fetching PR metadata, diffs, and CI status. Use local `git` for checkout, rebase, conflict resolution, and merge — it is more reliable for hands-on work.
+
+Default merge: `--squash --delete-branch`.
+Stop and ask only on: auth errors (401/403), network timeouts, or irreversible cross-subsystem decisions.
+
+## Principles
+
+- **Read every diff before acting.** CI green is not sufficient — `gh pr diff <n>` and verify logic.
+- **Decide autonomously.** You have the diff — decide and document why. Don't ask the user about content decisions.
+- **Resolve conflicts locally when the PR has value.** Investigate the diff. If worthwhile, checkout, rebase, resolve, force-push. Only close PRs whose changes are no longer relevant.
+- **Prefer local git over gh for branch manipulation.** `gh pr merge` for clean merges. For anything involving branches, rebases, or conflicts — use git directly.
 
 ## DO NOT
 
-- Explore the repo (`ls`, `tree`, `git branch`, check directories) — irrelevant to PR management
-- Do exploratory research before triaging — go straight to gathering PRs
-- Ask the user to confirm or choose a merge strategy — write the plan, then execute it
-- Mark a PR "diff verified" without running `gh pr diff <n>` — read every diff before classifying
-- Re-fetch individual PR metadata via `gh pr view` when `prs.json` already has the data
-- Merge when mergeable is `UNKNOWN` — re-query until it resolves (see gotchas below)
-
----
+- Explore the repo (`ls`, `tree`) — irrelevant to PR management
+- Ask the user to decide on PR content or confirm merge strategy
+- Mark a PR "diff verified" without running `gh pr diff <n>`
+- Re-fetch PR metadata when `prs.json` already has it
+- Merge when mergeable is `UNKNOWN` — re-query up to 3× first
+- Close a conflicting PR without first investigating if changes are worth keeping
 
 ## Gotchas
 
-**`UNKNOWN` mergeability is a hard block.** GitHub computes this async. Re-query up to 3×:
-`gh pr view <n> --json mergeable` — wait a few seconds between. Never merge `UNKNOWN`.
+See [REFERENCE.md](REFERENCE.md) for full details. Critical ones:
 
-**`--json comments` crashes `gh pr view`.** Use `--json body,comments` — not the `--comments` flag.
+- **`UNKNOWN` mergeability**: re-query up to 3×, never merge `UNKNOWN`
+- **`gh pr update-branch` doesn't exist**: use `gh api repos/{owner}/{repo}/pulls/{n}/update-branch`
+- **`gh pr list` caps at 100**: always `--limit 100`, warn if hit
+- **Always comment when closing**: `gh pr close <n> --comment "Reason"`
+- **`--body-file` for `gh pr create`**: never inline `--body`
 
-**`gh pr update-branch` does not exist.** Use the API instead:
-`gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=squash`
+---
 
-**`gh pr list` silently caps at 100.** Always use `--limit 100`. Warn user if count hits 100.
+## Conflict Resolution
 
-**Always comment when closing.** `gh pr close <n> --comment "Closing because..."` — never silently.
+When a PR shows `CONFLICTING`:
 
-**`gh pr create` body must use `--body-file`.** Write body to a tmpfile, pass `--body-file`. Never inline `--body`.
+1. **Investigate**: `gh pr diff <n>` — understand what the PR intended.
+2. **Decide**: if superseded or irrelevant — close with comment. If valuable — resolve locally.
+3. **Resolve locally**: checkout branch, `git rebase origin/<base>`, resolve using diff context, `git push --force-with-lease`.
+4. **Verify**: re-check mergeability, merge once clean.
 
-**"Base branch was modified" on merge.** Each merge changes the base branch, so the next merge may fail.
-Merge PRs one at a time. On this error, simply retry the same merge command.
+See [REFERENCE.md](REFERENCE.md) for the full rebase script and abort criteria.
 
 ---
 
 ## Single-PR Workflow
 
-Use when the user names a specific PR (e.g. "merge PR #42", "close PR #7").
-
 1. **Health check**: `gh pr view <n> --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,body`
-   — Verify mergeable is `MERGEABLE`. If `UNKNOWN`, re-query up to 3×.
-2. **Read diff**: `gh pr diff <n>` — verify logic, imports, API usage. For bot/AI PRs, grep unfamiliar identifiers.
-3. **Act**: merge (`gh pr merge <n> --squash --delete-branch`), close with comment, or hand off to `review-pr`.
+2. **Read diff**: `gh pr diff <n>` — verify logic. For bot/AI PRs, grep unfamiliar identifiers.
+3. **Act**: clean → `gh pr merge <n> --squash --delete-branch` · conflicts → resolve locally · reject → close with comment.
 
 ---
 
 ## Batch Triage Workflow
 
-Use when managing multiple PRs (e.g. "triage PRs", "clean up PR queue").
-
 ### Step 1: Gather and detect overlaps
 ```bash
 gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files \
-  --limit 100 | tee prs.json | python3 -c "
-import json, sys, collections
-data = json.load(sys.stdin)
-by_file = collections.defaultdict(list)
-for pr in data:
-    for f in pr.get('files', []):
-        if isinstance(f, dict) and 'path' in f:
-            by_file[f['path']].append(pr['number'])
-overlaps = [(p, ns) for p, ns in by_file.items() if len(ns) > 1]
-if overlaps:
-    print('OVERLAPPING FILES:')
-    for p, ns in sorted(overlaps, key=lambda x: -len(x[1])):
-        print(f'  {p}: PRs {ns}')
-else:
-    print('No file overlaps detected.')
-"
+  --limit 100 | tee prs.json
 ```
-This saves `prs.json` AND pipes to overlap detection in one shot.
-Overlapping PRs need sequenced merging — merge the simpler one first, re-check conflicts on the other.
-Also read `AGENTS.md` for merge overrides if it exists.
+Run overlap detection — see [REFERENCE.md](REFERENCE.md) for the script.
 
 ### Step 2: Collect diff evidence
-Run this for every PR. It fetches diffs, hashes them, and prints the full diff — producing verifiable evidence:
-```bash
-for n in $(jq -r '.[].number' prs.json); do
-  DIFF=$(gh pr diff "$n" 2>&1)
-  HASH=$(printf '%s' "$DIFF" | sha256sum | cut -d' ' -f1)
-  ADDS=$(printf '%s' "$DIFF" | grep -c '^+[^+]' 2>/dev/null || echo 0)
-  DELS=$(printf '%s' "$DIFF" | grep -c '^-[^-]' 2>/dev/null || echo 0)
-  FILES=$(printf '%s' "$DIFF" | grep -c '^diff --git' 2>/dev/null || echo 0)
-  echo "=== PR #${n} | sha256:${HASH:0:16} | +${ADDS}/-${DELS} | ${FILES} files ==="
-  printf '%s\n' "$DIFF"
-  echo ""
-done
-```
-Each PR gets: a truncated SHA-256 hash (proof the diff was fetched), change stats, and the full diff.
-Review the full diff for correctness. For bot/AI PRs, grep unfamiliar identifiers in the codebase.
+Fetch diffs for every PR with hash verification — see [REFERENCE.md](REFERENCE.md) for the loop.
 
 ### Step 3: Triage report
-Use data from `prs.json` (mergeability, CI, review) plus the diff evidence from Step 2.
-Write results to a plan file. **Each merge-ready PR must include its `sha256:` hash from Step 2.**
-- ✅ **Merge-ready** — `MERGEABLE`, CI green, diff evidence hash present
-- ⚠️ **Needs action** — blocked by conflict / CI / review
+Classify each PR. **Each merge-ready PR must include its `sha256:` hash.**
+- ✅ **Merge-ready** — `MERGEABLE`, CI green, diff hash present
+- 🔧 **Conflicts — resolvable** — worth keeping, resolve locally
+- ⚠️ **Needs action** — blocked by CI or review
 - 🔁 **Stale** — no activity >14 days
-- 🔀 **Overlapping** — file conflict risk with merge order specified
-- ❌ **Close candidates** — superseded, duplicate, or abandoned
+- 🔀 **Overlapping** — file conflict risk, merge order specified
+- ❌ **Close candidates** — superseded, duplicate, abandoned
 
-After writing the plan, proceed to merge — do not stop and ask for confirmation.
+After writing the plan, execute. Merge clean PRs first, then resolve conflicts locally, then close rejects.
 
 ---
 
