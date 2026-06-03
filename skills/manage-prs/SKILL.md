@@ -20,7 +20,7 @@ Stop and ask only on: auth errors (401/403), network timeouts, or irreversible c
 - **Decide autonomously.** You have the diff — decide and document why. Don't ask the user about content decisions.
 - **Comment, don't close.** When a PR needs work, leave a specific actionable comment explaining what to fix — don't close it. The author (human or agent) can iterate in the existing PR. Only close PRs that are truly abandoned, superseded, or duplicate.
 - **Resolve conflicts locally when the PR has value.** Investigate the diff. If worthwhile, checkout, rebase, resolve, force-push.
-- **Verify at every gate.** Run lint, tests, and/or build checks after conflict resolution, after any local changes, and before merging. Don't merge without a green local verification.
+- **Verify at every gate.** After conflict resolution, after any local changes, and before merging — detect and run the repo's verification commands. Check for: `package.json` (→ `npm test`, `npm run lint`), `Makefile` (→ `make test`), `pytest.ini`/`pyproject.toml` (→ `pytest`), or CI config for clues. Don't merge without a green local verification.
 - **Prefer local git over gh for branch manipulation.** `gh pr merge` for clean merges. For anything involving branches, rebases, or conflicts — use git directly.
 
 ## DO NOT
@@ -33,10 +33,11 @@ Stop and ask only on: auth errors (401/403), network timeouts, or irreversible c
 - Close a conflicting PR without first investigating if changes are worth keeping
 - Close a PR when commenting with actionable feedback would suffice
 - Merge without running at least a basic verification (lint, test, or build)
+- Guess what is in REFERENCE.md — always read it before using its scripts
 
 ## Gotchas
 
-See [REFERENCE.md](REFERENCE.md) for full details. Critical ones:
+Read [REFERENCE.md](REFERENCE.md) before your first `gh` command. Critical ones:
 
 - **`UNKNOWN` mergeability**: re-query up to 3×, never merge `UNKNOWN`
 - **`gh pr update-branch` doesn't exist**: use `gh api repos/{owner}/{repo}/pulls/{n}/update-branch`
@@ -53,10 +54,10 @@ When a PR shows `CONFLICTING`:
 1. **Investigate**: `gh pr diff <n>` — understand what the PR intended.
 2. **Decide**: if superseded or truly abandoned — close with comment. If fixable by the author — comment with specific rebase instructions. If valuable and you can resolve — do it locally.
 3. **Resolve locally**: checkout branch, `git rebase origin/<base>`, resolve using diff context, `git push --force-with-lease`.
-4. **Verify locally**: run lint/tests/build on the resolved branch before pushing.
+4. **Verify locally**: detect the repo's test/lint commands (see Principles) and run them on the resolved branch before pushing.
 5. **Re-check**: verify mergeability after push, merge once clean.
 
-See [REFERENCE.md](REFERENCE.md) for the full rebase script and abort criteria.
+Read [REFERENCE.md](REFERENCE.md) to retrieve the full rebase script and abort criteria before starting.
 
 ---
 
@@ -64,7 +65,7 @@ See [REFERENCE.md](REFERENCE.md) for the full rebase script and abort criteria.
 
 1. **Health check**: `gh pr view <n> --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,body`
 2. **Read diff**: `gh pr diff <n>` — verify logic. For bot/AI PRs, grep unfamiliar identifiers.
-3. **Verify**: checkout the branch locally. Run lint, tests, or build as appropriate.
+3. **Verify**: checkout the branch locally. Detect the repo's test/lint commands (see Principles) and run them.
 4. **Act**: clean → `gh pr merge <n> --squash --delete-branch` · conflicts → resolve locally · needs work → comment with specific feedback.
 
 ---
@@ -76,10 +77,10 @@ See [REFERENCE.md](REFERENCE.md) for the full rebase script and abort criteria.
 gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files \
   --limit 100 | tee prs.json
 ```
-Run overlap detection — see [REFERENCE.md](REFERENCE.md) for the script.
+Read [REFERENCE.md](REFERENCE.md) to retrieve the overlap detection script, then run it.
 
 ### Step 2–3: Diff evidence → triage
-Fetch diffs with hash verification (see [REFERENCE.md](REFERENCE.md)), then classify. **Each merge-ready PR must include its `sha256:` hash.**
+Read [REFERENCE.md](REFERENCE.md) to retrieve the diff collection loop. Run it, then classify. **Each merge-ready PR must include its `sha256:` hash.**
 - ✅ **Merge-ready** — `MERGEABLE`, CI green, diff hash present
 - 🔧 **Conflicts — resolvable** — worth keeping, resolve locally
 - ⚠️ **Needs action** — blocked by CI or review
@@ -88,12 +89,12 @@ Fetch diffs with hash verification (see [REFERENCE.md](REFERENCE.md)), then clas
 - 💬 **Needs author action** — comment with specific feedback, leave open
 - ❌ **Close candidates** — truly superseded, duplicate, or abandoned (not just needing work)
 
-After writing the plan, execute:
-1. Merge clean PRs (run local verification before each merge).
-2. Resolve conflicts locally, verify, push, merge.
-3. Comment on PRs that need author action.
-4. Close only true rejects.
-5. **Re-check at session end**: re-query PRs you commented on — authors often push fixes quickly. Merge any that are now clean.
+After writing the plan, execute one category at a time. Log progress after each category before moving to the next:
+1. **✅ Merge-ready**: verify locally, merge each. Log: `"Merged: #X, #Y"`
+2. **🔧 Conflicts**: resolve each locally, verify, push, merge. Log: `"Resolved: #X"`
+3. **💬 Needs author action**: comment on each. Log: `"Commented: #X, #Y"`
+4. **❌ Close**: close true rejects only. Log: `"Closed: #X"`
+5. **Re-check**: re-query PRs you commented on — authors often push fixes quickly. Merge any now clean.
 
 ---
 
