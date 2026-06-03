@@ -51,8 +51,8 @@ CI green is not sufficient. Always run `gh pr diff <n>` and verify the logic.
 For automated PRs (e.g. Jules, Dependabot), `grep` any unfamiliar identifiers in the codebase before approving.
 Do not trust the PR description alone.
 
-### Always comment when closing
-`gh pr close <n> --comment "Closing because..."` — never close silently.
+### Prefer commenting over closing
+When a PR needs work, comment with specific actionable feedback and leave it open — the author can iterate in place. Only close PRs that are truly abandoned, superseded, or duplicate. If you must close: `gh pr close <n> --comment "Closing because..."` — never silently.
 
 ### Avoid sequential multi-query bloat
 Do not re-fetch `gh pr list` after every merge.
@@ -80,6 +80,11 @@ git rebase origin/<base-branch>
 git add <resolved-files>
 git rebase --continue
 
+# verify the resolved state before pushing
+# run whatever is appropriate: lint, tests, build
+npm run lint 2>&1 || true
+npm test 2>&1 || true
+
 # push the resolved branch back
 git push --force-with-lease origin <pr-branch-name>
 
@@ -88,14 +93,16 @@ git checkout <base-branch>
 git branch -D pr-<n>-rebase
 ```
 
-### When to abort
-- Conflict spans 5+ files with unrelated cross-cutting changes — close with comment.
-- PR's changes are superseded by a newer PR or direct commit — close with comment.
-- Rebase produces a state where CI will clearly fail (missing deps, removed APIs) — close with comment.
+### When to abort local resolution
+- Conflict spans 5+ files with unrelated cross-cutting changes — comment with analysis, leave open for author.
+- PR's changes are superseded by a newer PR or direct commit — close with explanation.
+- Rebase produces a state where lint/tests clearly fail (missing deps, removed APIs) — comment with what broke and why, leave open.
 
 ### After resolution
-Re-check mergeability: `gh pr view <n> --json mergeable`
-Once `MERGEABLE`, merge normally: `gh pr merge <n> --squash --delete-branch`
+1. Verify locally: run lint, tests, and/or build. Fix anything the resolution broke.
+2. Push: `git push --force-with-lease origin <pr-branch-name>`
+3. Re-check mergeability: `gh pr view <n> --json mergeable`
+4. Once `MERGEABLE`, merge: `gh pr merge <n> --squash --delete-branch`
 
 ---
 
@@ -203,6 +210,10 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 | PR | Title | Conflict Summary | Resolution Plan |
 |----|-------|------------------|-----------------|
 
+### 💬 Needs Author Action
+| PR | Title | Comment Left | Status |
+|----|-------|-------------|--------|
+
 ### ⚠️ Needs Action
 | PR | Title | Blocker |
 |----|-------|---------|
@@ -219,7 +230,7 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 | PR | Author | Verification Status |
 |----|--------|---------------------|
 
-### ❌ Close Candidates
+### ❌ Close Candidates (truly abandoned/superseded only)
 | PR | Title | Reason |
 |----|-------|--------|
 ```
