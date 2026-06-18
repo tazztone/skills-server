@@ -1,79 +1,55 @@
 ---
 name: create-agentsmd
-description: 'Generate a minimal, high-signal AGENTS.md for a repository. Prioritizes brevity over completeness — unnecessary context increases inference cost and reduces agent task success rates.'
+description: Generate a minimal, high-signal AGENTS.md file at the repository root.
+disable-model-invocation: true
 ---
 
-# Create a minimal, high-signal AGENTS.md
+# Create a High-Signal AGENTS.md
 
-You are a code agent. Your task is to create a concise, accurate AGENTS.md at the root of this repository.
-
-> **Warning**: Comprehensive context files increase inference cost and reduce agent task success rates. Every line you add must clear a high bar. When in doubt, omit it.
-
-AGENTS.md is an open format that gives coding agents the non-obvious, repo-specific context they need to work effectively — context that cannot be inferred by reading the code.
-
-## What is AGENTS.md?
-
-AGENTS.md is a Markdown file that serves as a "README for agents" — a predictable place for instructions that are not already discoverable from the codebase. It complements README.md without duplicating it.
-
-## Key Principles
-
-- **Minimal by default**: Every section must justify its presence. If an agent can infer it from the repo, omit it.
-- **Non-redundant**: If it's already in README.md, package.json scripts, CI config, or is a standard convention for the stack, leave it out.
-- **Standardized location**: Placed at repository root (or subproject roots for monorepos).
-- **Open format**: Standard Markdown, flexible structure.
-- **Ecosystem compatibility**: Works across 20+ AI coding tools and agents.
-
-## What to Include / What NOT to Include
-
-Only include a piece of information if **all three** of the following are true:
-1. An agent cannot infer it by reading the codebase or standard tooling docs.
-2. Getting it wrong would cause a real failure (broken tests, broken build, security issue).
-3. It cannot be found in an existing file (README, package.json, Makefile, CI config).
-
-**What NOT to include:**
-- Standard install/build/test commands that match the package manager's defaults (e.g. `npm install`, `npm test`)
-- Explanations of why steps are needed — agents don't benefit from prose rationale
-- Architecture overviews already covered in README.md
-- Generic code style rules (e.g. "use meaningful variable names")
-- Anything that would be obvious to any competent developer on this stack
-
-## Example Template
-
-A good AGENTS.md is often just a few lines:
-
-```markdown
-## Testing
-
-- Run a single test: `pnpm vitest run -t "<test name>"`
-- Integration tests require a local Postgres instance: `docker compose up -d db`
-
-## PR instructions
-
-- Title format: [component] Brief description
-```
-
-If you find yourself writing more than ~10 bullet points total, stop and apply the three-condition filter again.
+Use this skill to create a minimal, non-redundant `AGENTS.md` at the root of the repository (or subproject roots in monorepos) containing only critical, non-discoverable instructions.
 
 ## Implementation Steps
 
-1. **Analyze the project structure**: languages, frameworks, package manager, test runner, CI config.
-2. **Read existing documentation**: README.md, package.json scripts, Makefile, `.github/workflows/`.
-3. **Apply the redundancy check**: for each candidate instruction, ask "Is this already documented somewhere discoverable?" If yes, omit it.
-4. **Write only what survives the filter**: non-obvious, failure-critical, not-already-documented instructions.
-5. **Verify all commands work** as documented before including them.
+1. **Audit Project Configuration**
+   - Read the project layout, configurations, package files (`package.json`, `Cargo.toml`, etc.), `README.md`, scripts, and CI workflows.
+   - **Completion Criterion**: Compile a list of the tech stack, default commands, and existing documentation.
 
-## Best Practices
+2. **Extract Candidate Instructions**
+   - Identify candidate instructions for agents (e.g., custom test commands, seed databases, PR title schemas).
+   - Apply the **Three-Condition Filter** to each candidate.
+   - **Completion Criterion**: Eliminate any candidates that do not meet all three filter conditions.
 
-- **Be specific**: exact commands only, no vague descriptions
-- **Use code blocks**: wrap all commands in backticks
-- **Omit context explanations**: write what to run, not why
-- **Prefer fewer sections**: one focused section beats six thin ones
-- **Update as the project evolves**: stale instructions are worse than none
+3. **Verify Candidate Commands**
+   - Execute every command surviving the filter inside the workspace to confirm they run without errors.
+   - **Completion Criterion**: Every command compiles, runs, or executes successfully in the terminal.
 
-## Monorepo Considerations
+4. **Write AGENTS.md**
+   - Write the filtered instructions into `/AGENTS.md` using the template format.
+   - **Completion Criterion**: The file exists at the root, contains only commands or strict rules with no prose rationale, and has fewer than 10 bullet points.
 
-- Place a root AGENTS.md only for cross-cutting, non-obvious instructions.
-- Create subproject AGENTS.md files only where subprojects have genuinely unique, non-obvious requirements.
-- The closest AGENTS.md takes precedence for any given location.
+---
 
-When creating the AGENTS.md file, prioritize **precision and brevity over completeness**. A shorter file with only high-signal instructions outperforms a comprehensive one that buries critical details in noise.
+## Reference: The Three-Condition Filter
+
+Only include an instruction in `AGENTS.md` if **all three** conditions are true:
+1. **Uninferable**: An agent cannot infer it by reading the codebase or standard tooling defaults.
+2. **Critical**: Getting it wrong causes a build, test, runtime, or security failure.
+3. **Undocumented**: It is not already written in an existing file (e.g., `README.md`, `package.json` scripts, `Makefile`, or CI config).
+
+### Exclude List (No-Ops)
+Do **not** include:
+- Standard package manager commands (e.g., `npm install`, `go test`, `pytest`).
+- Rationale or explanations of *why* steps are needed.
+- Generic coding guidelines (e.g., "write clean code" or "write unit tests").
+- High-level architecture overviews already in the `README.md`.
+
+---
+
+## Reference: Structure Template
+
+```markdown
+## [Category, e.g., Testing / Database Setup]
+
+- [Brief instruction/command]
+- [Brief instruction/command]
+```
