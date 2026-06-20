@@ -8,11 +8,43 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 | Slug | Description |
 |------|-------------|
-| [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` — prioritizes brevity over completeness |
-| [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua scripting API, Workflow Integrations, Fusion Fuses) |
-| [`find-skills`](./skills/find-skills/SKILL.md) | Find and install agent skills from the skills.sh ecosystem |
-| [`review`](./skills/review/SKILL.md) | Code review skill |
-| [`skill-creator`](./skills/skill-creator/SKILL.md) | Create new skills, modify and improve existing skills, and measure skill performance with evals and benchmarks |
+| [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root |
+| [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) |
+| [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches |
+| [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal |
+
+## Detailed Skill Overviews
+
+### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
+* **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
+* **Key Features**:
+  - Uses the **Three-Condition Filter**: Instructions must be *uninferable* (cannot be guessed), *critical* (prevents failure), and *undocumented* (not found in other files).
+  - Automatically audits project layouts, configurations, and dependency manifests.
+  - Verifies commands in the shell to ensure they are correct before adding them.
+
+### 🎬 [davinci-resolve](./skills/davinci-resolve/SKILL.md)
+* **Purpose**: Comprehensive handbook for scripting, automation, and plugin/fuse development for DaVinci Resolve.
+* **Key Features**:
+  - **Scripting API**: Integrations using Python 3.6–3.12 and Lua to automate project timelines, media ingestion, color grading, and rendering.
+  - **Workflow Integrations**: Creating Studio-only custom Electron (JS) panels inside the Resolve UI.
+  - **Fusion Fuse Plugins**: Creating custom image-processing and effect nodes using Lua.
+  - Documents API boundaries, known quirks (like 1-based node indexing), and OS-specific setup steps.
+
+### 🔀 [manage-prs](./skills/manage-prs/SKILL.md)
+* **Purpose**: Orchestrates a complete, safe workflow to batch triage, review, and merge multiple GitHub PRs with conflict resolution and verification.
+* **Key Features**:
+  - **Phase-Gated Process**: Runs from collection/analysis to planning, local merge execution, and final test suite verification.
+  - **Conflict Resolution**: Safely handles git conflicts locally and checks for overlapping changes between pull requests.
+  - **Safe Execution**: Uses explicit command guidelines to avoid shell bugs (e.g. avoiding segfaulting commands like `gh pr checkout`).
+  - **Interactive Gate**: Ensures human approval via an `implementation_plan.md` artifact before any branch modifications or merges are made.
+
+### 🎨 [signal-stickers](./skills/signal-stickers/SKILL.md)
+* **Purpose**: Design, formatting, and publishing handbook for creating and uploading custom static and animated sticker packs to Signal.
+* **Key Features**:
+  - **Canvas & File Requirements**: Guides on canvas sizing (512x512px), file formats (PNG, WebP, APNG), size limits (300KB), and animation duration limits (3s max, no GIFs).
+  - **Best Practices**: Safe zones/margins, transparency, and stroke outlines for seamless rendering in both light and dark modes.
+  - **Publishing**: Assigning emojis to stickers for in-chat auto-suggestions, and uploading packs via Signal Desktop.
+
 
 ## Structure
 
