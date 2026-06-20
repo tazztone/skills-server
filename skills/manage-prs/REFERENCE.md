@@ -104,11 +104,14 @@ done
 
 After collecting diffs and `prs.json`, detect file overlaps to sequence merges safely.
 
+If triaging within the skill-server workspace itself:
 ```bash
 python3 scripts/pr-overlap.py prs.json
 ```
 
-### Quick fallback one-liner
+If triaging in another target repository, use the quick fallback one-liner (or resolve the absolute path to the skill's `scripts/pr-overlap.py`):
+
+### Quick fallback one-liner (Recommended for other repos)
 ```bash
 python3 -c "
 import json, collections
