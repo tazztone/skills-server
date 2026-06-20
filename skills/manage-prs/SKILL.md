@@ -44,6 +44,7 @@ Read [REFERENCE.md](REFERENCE.md) before your first command. It details workarou
 - **`gh pr create`**: require `--body-file`
 - **`gh pr checkout` panics**: fetch/checkout manually
 - **`git rebase`**: `GIT_EDITOR=true` bypass
+- **`gh pr merge` transient errors**: retry up to 5 times
 
 ---
 

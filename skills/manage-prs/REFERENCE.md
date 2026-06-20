@@ -25,6 +25,10 @@ gh pr view <n> --json mergeable
 ```
 Retry up to 3 times with a few seconds between. If still `UNKNOWN`, report to the user.
 
+### `gh pr merge` fails with base branch modified or merge conflict errors
+When merging multiple PRs sequentially or right after a force push, the GitHub GraphQL API might return `GraphQL: Base branch was modified. Review and try the merge again` or `GraphQL: Pull Request has merge conflicts`.
+This is often a transient caching issue. Wait 2-3 seconds and retry the command up to 3-5 times before giving up.
+
 ### `--json comments` crashes `gh pr view`
 Use `--json body,comments` — **not** the `--comments` flag. The flag crashes.
 
@@ -71,7 +75,7 @@ When a PR needs work, comment with specific actionable feedback and leave it ope
 
 ### Avoid sequential multi-query bloat
 Do not re-fetch `gh pr list` after every merge.
-Group non-overlapping merge-ready PRs into a batch queue, execute sequentially, sync at the end.
+Group non-overlapping merge-ready PRs into a batch queue, execute sequentially, and sync at the end. Insert a short delay (e.g. `sleep 2`) between consecutive `gh pr merge` calls to prevent transient base branch update errors.
 
 ---
 
