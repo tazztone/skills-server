@@ -36,14 +36,14 @@ Stop and ask only on: auth errors (401/403), network timeouts, or irreversible c
 
 ## Gotchas
 
-Read [REFERENCE.md](REFERENCE.md) before your first `gh` command. Critical ones:
-
-- **`UNKNOWN` mergeability**: re-query up to 3×, never merge `UNKNOWN`
-- **`gh pr update-branch` doesn't exist**: use `gh api repos/{owner}/{repo}/pulls/{n}/update-branch`
-- **`gh pr list` caps at 100**: always `--limit 100`, warn if hit
-- **Comment before closing**: if you must close, `gh pr close <n> --comment "Reason"` — never silently
-- **`--body-file` for `gh pr create`**: never inline `--body`
-- **`gh pr checkout` panics**: never use it — see REFERENCE.md for the safe alternative
+Read [REFERENCE.md](REFERENCE.md) before your first command. It details workarounds for critical landmines:
+- **`UNKNOWN` mergeability**: re-query up to 3×
+- **`gh pr update-branch`**: raw API fallback
+- **`gh pr list`**: `--limit 100` cap
+- **Closing PRs**: use `gh pr close <n> --comment "Reason"`
+- **`gh pr create`**: require `--body-file`
+- **`gh pr checkout` panics**: fetch/checkout manually
+- **`git rebase`**: `GIT_EDITOR=true` bypass
 
 ---
 
@@ -79,7 +79,7 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 
 1. Fetch PR list:
    ```bash
-   gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files,updatedAt \
+   gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,headRefName,headRepositoryOwner,files,updatedAt \
      --limit 100 | tee prs.json
    ```
 2. Collect all diffs — read [REFERENCE.md](REFERENCE.md) for the diff collection loop.

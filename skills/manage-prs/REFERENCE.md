@@ -51,6 +51,10 @@ gh pr create --title "<TITLE>" --body-file "$BODY_FILE"
 ### `gh pr list` silently caps at 100
 Always pass `--limit 100`. If the count hits 100, warn the user — triage will be incomplete.
 
+### `git rebase --continue` hangs on interactive editor prompts
+By default, `git rebase --continue` opens the default editor to let you modify commit messages. In headless/non-interactive agent environments, this will hang.
+Prefix the command with `GIT_EDITOR=true` (i.e. `GIT_EDITOR=true git rebase --continue`) to bypass the editor screen and reuse the existing commit message.
+
 ### Structural/cache-layer PRs are systemic blockers
 PRs altering service workers (`sw.js`), architectural caching, or app-layer config have cascading side effects.
 Group these, isolate the ideal structural layout first, and reject/close alternates — don't chain-merge blindly.
@@ -146,15 +150,19 @@ git rebase origin/<base-branch>
 # Resolve each conflict using your diff investigation context
 # — you know what the author intended, honour that intent
 git add <resolved-files>
-git rebase --continue
+GIT_EDITOR=true git rebase --continue
 
 # Push the resolved branch back
-git push --force-with-lease origin <pr-branch-name>
+# Note: <head-ref-name> is the head branch name from prs.json
+git push --force-with-lease origin pr-<n>:<head-ref-name>
 
 # Clean up local branch
 git checkout <base-branch>
 git branch -D pr-<n>
 ```
+
+### Automation for large batches
+If triaging or merging a large batch of PRs (e.g., >5), write a temporary Python script in the scratch directory (e.g. `merge_helper.py`) to automate checkout, rebase, automatic resolution of trivial conflicts, force-pushing, merging, and cleaning up. This saves time and avoids copy-paste command errors. Use `GIT_EDITOR=true` in any automated git rebase commands.
 
 ### Fork PR pushback
 
