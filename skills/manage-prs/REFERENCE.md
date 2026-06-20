@@ -1,10 +1,21 @@
 # Manage PRs — Reference
 
-Gotchas, command patterns, conflict resolution details, and the overlap detection script.
+Gotchas, command patterns, conflict resolution details, and reusable scripts.
 
 ---
 
 ## Gotchas & Landmines
+
+### `gh pr checkout` panics on some environments
+Never use `gh pr checkout` — it segfaults. Always fetch manually:
+```bash
+git fetch origin pull/<n>/head:pr-<n>
+git checkout pr-<n>
+```
+
+### `gh` vs `git` boundary
+Use `gh` for GitHub API operations: `pr list`, `pr diff`, `pr view`, `pr merge`, `pr comment`, `pr close`.
+Use `git` for all local work: fetch, checkout, rebase, push. Never mix.
 
 ### `UNKNOWN` mergeability is a hard block
 GitHub computes mergeability asynchronously and temporarily returns `UNKNOWN`. **Never merge `UNKNOWN`.**
@@ -45,7 +56,7 @@ PRs altering service workers (`sw.js`), architectural caching, or app-layer conf
 Group these, isolate the ideal structural layout first, and reject/close alternates — don't chain-merge blindly.
 
 ### Never merge without reading the diff
-CI green is not sufficient. Always run `gh pr diff <n>` and verify the logic.
+CI green is not sufficient. Always run `gh pr diff <n>` (single-PR) or read `pr-<n>.diff` (batch) and verify the logic.
 
 ### Bot/AI PRs: verify imports and APIs
 For automated PRs (e.g. Jules, Dependabot), `grep` any unfamiliar identifiers in the codebase before approving.
@@ -60,123 +71,41 @@ Group non-overlapping merge-ready PRs into a batch queue, execute sequentially, 
 
 ---
 
-## Local Conflict Resolution — Details
+## Repo Verification Heuristic
 
-When the diff investigation shows a PR's changes are worth preserving, resolve locally:
+After all merges and resolutions are complete, detect and run the repo's verification commands once on final main:
 
-### Standard rebase flow
+| Signal file | Command |
+|-------------|---------|
+| `package.json` | `npm test && npm run lint` |
+| `Makefile` | `make test` |
+| `pytest.ini` or `pyproject.toml` | `pytest` |
+| `build.gradle` or `gradlew` | `./gradlew testDebugUnitTest` |
+| CI config (`.github/workflows/`) | Check for the test job's `run:` step |
+
+Run the first matching command. If none match, check the CI config.
+
+---
+
+## Diff Collection Loop
+
+Run from the repo root after `prs.json` exists:
+
 ```bash
-# fetch latest state
-git fetch origin
-
-# checkout the PR branch
-git checkout -b pr-<n>-rebase origin/<pr-branch-name>
-
-# rebase onto target
-git rebase origin/<base-branch>
-
-# resolve each conflict using your diff investigation context
-# — you know what the author intended, honour that intent
-git add <resolved-files>
-git rebase --continue
-
-# verify the resolved state before pushing
-# run whatever is appropriate: lint, tests, build
-npm run lint 2>&1 || true
-npm test 2>&1 || true
-
-# push the resolved branch back
-git push --force-with-lease origin <pr-branch-name>
-
-# clean up local branch
-git checkout <base-branch>
-git branch -D pr-<n>-rebase
+for n in $(jq -r '.[].number' prs.json); do
+  gh pr diff "$n" > "pr-${n}.diff"
+  echo "Collected pr-${n}.diff"
+done
 ```
-
-### When to abort local resolution
-- Conflict spans 5+ files with unrelated cross-cutting changes — comment with analysis, leave open for author.
-- PR's changes are superseded by a newer PR or direct commit — close with explanation.
-- Rebase produces a state where lint/tests clearly fail (missing deps, removed APIs) — comment with what broke and why, leave open.
-
-### After resolution
-1. Verify locally: run lint, tests, and/or build. Fix anything the resolution broke.
-2. Push: `git push --force-with-lease origin <pr-branch-name>`
-3. Re-check mergeability: `gh pr view <n> --json mergeable`
-4. Once `MERGEABLE`, merge: `gh pr merge <n> --squash --delete-branch`
 
 ---
 
 ## Overlap Detection
 
-After gathering PRs to `prs.json`, detect file overlaps to sequence merges safely.
-
-Write the following script to a temp file and run it:
+After collecting diffs and `prs.json`, detect file overlaps to sequence merges safely.
 
 ```bash
-OVERLAP_SCRIPT=$(mktemp "${TMPDIR:-/tmp}/pr-overlap.XXXXXX.py")
-cat > "$OVERLAP_SCRIPT" <<'PYEOF'
-#!/usr/bin/env python3
-"""Find file overlaps and duplicate subsets among PRs grouped by baseRefName."""
-import json, sys
-from collections import defaultdict
-from itertools import combinations
-from pathlib import Path
-
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: pr-overlap.py <prs.json>", file=sys.stderr)
-        return 2
-    try:
-        data = json.loads(Path(sys.argv[1]).read_text())
-    except Exception as e:
-        print(f"Error reading JSON: {e}", file=sys.stderr)
-        return 1
-    if not isinstance(data, list):
-        print("Invalid input: expected a JSON list of PRs.", file=sys.stderr)
-        return 1
-
-    by_base = defaultdict(list)
-    for pr in data:
-        if "number" not in pr:
-            continue
-        by_base[pr.get("baseRefName", "unknown")].append(pr)
-
-    for base, prs in by_base.items():
-        if len(prs) < 2:
-            continue
-        print(f"=== Target Branch: {base} ===")
-        pr_files = {}
-        titles = {}
-
-        for pr in prs:
-            num = pr["number"]
-            titles[num] = pr.get("title", "")
-            files = pr.get("files", [])
-            if not files:
-                print(f"  Warning: PR #{num} has no files.", file=sys.stderr)
-            pr_files[num] = {f["path"] for f in files if isinstance(f, dict) and "path" in f}
-
-        found = False
-        for a, b in combinations(sorted(pr_files), 2):
-            shared = pr_files[a] & pr_files[b]
-            if not shared:
-                continue
-            found = True
-            print(f"#{a} <-> #{b}: {', '.join(sorted(shared))}")
-            if pr_files[b].issubset(pr_files[a]):
-                print(f"  * Duplicate Candidate: #{b} is a subset of #{a}")
-            elif pr_files[a].issubset(pr_files[b]):
-                print(f"  * Duplicate Candidate: #{a} is a subset of #{b}")
-            print(f"  #{a}: {titles.get(a, '')[:72]}")
-            print(f"  #{b}: {titles.get(b, '')[:72]}")
-        if not found:
-            print(f"No overlaps on {base}.")
-    return 0
-
-if __name__ == "__main__":
-    raise SystemExit(main())
-PYEOF
-python3 "$OVERLAP_SCRIPT" prs.json
+python3 scripts/pr-overlap.py prs.json
 ```
 
 ### Quick fallback one-liner
@@ -197,18 +126,75 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 
 ---
 
+## Local Conflict Resolution — Details
+
+When the diff investigation shows a PR's changes are worth preserving, resolve locally.
+
+### Standard rebase flow
+
+```bash
+# Fetch the PR branch (works for both origin and fork PRs)
+git fetch origin pull/<n>/head:pr-<n>
+git checkout pr-<n>
+
+# Rebase onto target
+git rebase origin/<base-branch>
+
+# Resolve each conflict using your diff investigation context
+# — you know what the author intended, honour that intent
+git add <resolved-files>
+git rebase --continue
+
+# Push the resolved branch back
+git push --force-with-lease origin <pr-branch-name>
+
+# Clean up local branch
+git checkout <base-branch>
+git branch -D pr-<n>
+```
+
+### Fork PR pushback
+
+When the PR is from a fork, you cannot push to `origin/<branch>`. Get the fork's push URL:
+
+```bash
+PUSH_URL=$(gh pr view <n> --json headRepository \
+  --jq '"https://github.com/" + .headRepository.owner.login + "/" + .headRepository.name + ".git"')
+BRANCH=$(gh pr view <n> --json headRefName --jq '.headRefName')
+git push --force-with-lease "$PUSH_URL" "pr-<n>:$BRANCH"
+git branch -D pr-<n>
+```
+
+### When to abort local resolution
+- Conflict spans 5+ files with unrelated cross-cutting changes — comment with analysis, leave open for author.
+- PR's changes are superseded by a newer PR or direct commit — close with explanation.
+- Rebase produces a state where verification clearly fails (missing deps, removed APIs) — comment with what broke and why, leave open.
+
+---
+
+## Session Cleanup
+
+Run at the end of every session (Phase 4):
+
+```bash
+rm -f prs.json pr-*.diff
+git branch -l 'pr-*' | xargs -r git branch -D
+```
+
+---
+
 ## Triage Report Template
 
 ```
 ## PR Triage Report — {repo} ({date})
 
 ### ✅ Merge-Ready
-| PR | Title | Author | CI | Review |
-|----|-------|--------|----|--------|
+| PR | Title | Author | CI | Review | Notes |
+|----|-------|--------|----|--------|-------|
 
 ### 🔧 Conflicts — Resolvable
 | PR | Title | Conflict Summary | Resolution Plan |
-|----|-------|------------------|-----------------|
+|----|-------|------------------|-----------------| 
 
 ### 💬 Needs Author Action
 | PR | Title | Comment Left | Status |
@@ -222,15 +208,9 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 | PR | Title | Last Activity | Recommendation |
 |----|-------|---------------|----------------|
 
-### 🔀 Overlapping
-| PR A | PR B | Shared Files |
-|------|------|--------------|
-
-### 🤖 Bot/AI PRs
-| PR | Author | Verification Status |
-|----|--------|---------------------|
-
 ### ❌ Close Candidates (truly abandoned/superseded only)
 | PR | Title | Reason |
 |----|-------|--------|
 ```
+
+> Overlapping PRs are annotated in the Notes column of their category row (e.g. "overlaps #94 — merge first"), not listed in a separate category.
