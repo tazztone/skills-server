@@ -186,10 +186,12 @@ git branch -l 'pr-*' | xargs -r git branch -D
 
 ---
 
-## Triage Report Template
+## Merge Plan Template
+
+Write this as an `implementation_plan.md` artifact. Request user feedback on the artifact.
 
 ```
-## PR Triage Report — {repo} ({date})
+# PR Merge Plan — {repo} ({date})
 
 ### ✅ Merge-Ready
 | PR | Title | Author | CI | Review | Notes |

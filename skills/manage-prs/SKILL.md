@@ -89,11 +89,11 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 
 ### Phase 2 — Plan (produce merge plan)
 
-4. Read all `pr-<n>.diff` files and overlap output. Classify every PR using the categories below. For overlapping pairs, annotate with merge order (e.g. "merge #92 before #94"). Use the triage report template from [REFERENCE.md](REFERENCE.md).
+4. Read all `pr-<n>.diff` files and overlap output. Classify every PR using the categories below. For overlapping pairs, annotate with merge order (e.g. "merge #92 before #94"). Write the result as an `implementation_plan.md` artifact using the merge plan template from [REFERENCE.md](REFERENCE.md). Request user feedback on the artifact.
 
-✅ **Phase 2 done when:** every PR from `prs.json` appears exactly once in the triage table, and all overlapping pairs have an explicit merge order.
+✅ **Phase 2 done when:** every PR from `prs.json` appears exactly once in the plan, all overlapping pairs have an explicit merge order, and the plan is written as an artifact awaiting user approval.
 
-**Present the merge plan to the user and stop. Do not proceed to Phase 3 until the user approves.**
+**Stop after writing the merge plan artifact. Do not proceed to Phase 3 until the user approves.**
 
 **Triage categories:**
 - ✅ **Merge-ready** — `MERGEABLE`, CI green
