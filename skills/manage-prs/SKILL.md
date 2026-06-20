@@ -79,7 +79,7 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 
 1. Fetch PR list:
    ```bash
-   gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files \
+   gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,files,updatedAt \
      --limit 100 | tee prs.json
    ```
 2. Collect all diffs — read [REFERENCE.md](REFERENCE.md) for the diff collection loop.
@@ -87,11 +87,13 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 
 ✅ **Phase 1 done when:** `prs.json` exists AND a `pr-<n>.diff` file exists for every PR number in it.
 
-### Phase 2 — Plan (produce triage table)
+### Phase 2 — Plan (produce merge plan)
 
-4. Read all `pr-<n>.diff` files and overlap output. Classify every PR using the categories below. For overlapping pairs, annotate with merge order (e.g. "merge #92 before #94").
+4. Read all `pr-<n>.diff` files and overlap output. Classify every PR using the categories below. For overlapping pairs, annotate with merge order (e.g. "merge #92 before #94"). Use the triage report template from [REFERENCE.md](REFERENCE.md).
 
 ✅ **Phase 2 done when:** every PR from `prs.json` appears exactly once in the triage table, and all overlapping pairs have an explicit merge order.
+
+**Present the merge plan to the user and stop. Do not proceed to Phase 3 until the user approves.**
 
 **Triage categories:**
 - ✅ **Merge-ready** — `MERGEABLE`, CI green
@@ -103,7 +105,8 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 
 Overlapping PRs are annotated within their category (e.g. "✅ overlaps #94 — merge first"), not given a separate category.
 
-### Phase 3 — Execute (one category at a time)
+### Phase 3 — Execute (one category at a time, requires user approval)
+
 
 5. **✅ Merge-ready**: `gh pr merge <n> --squash --delete-branch` for each. Log: `"Merged: #X, #Y"`
 6. **🔧 Conflicts**: follow Conflict Resolution section for each. Log: `"Resolved: #X"`
@@ -115,9 +118,10 @@ Overlapping PRs are annotated within their category (e.g. "✅ overlaps #94 — 
 ### Phase 4 — Verify & Cleanup
 
 9. Run repo verification commands once on final main. See [REFERENCE.md](REFERENCE.md) for heuristic.
-10. Clean up: read [REFERENCE.md](REFERENCE.md) for the cleanup commands.
+10. **If verification fails**: check if the failure is pre-existing (exists on main before your merges) or caused by your changes. Pre-existing → note it and proceed. Caused by your changes → investigate which merge introduced it, revert if needed, and report.
+11. Clean up: read [REFERENCE.md](REFERENCE.md) for the cleanup commands.
 
-✅ **Phase 4 done when:** verification passes and no workspace artifacts remain.
+✅ **Phase 4 done when:** verification passes (or pre-existing failures documented) and no workspace artifacts remain (`prs.json`, `pr-*.diff`, temp branches all deleted).
 
 ---
 
