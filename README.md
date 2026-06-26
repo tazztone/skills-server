@@ -10,6 +10,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 |------|-------------|
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) |
+| [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules |
 | [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches |
 | [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal |
 
@@ -29,6 +30,15 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Workflow Integrations**: Creating Studio-only custom Electron (JS) panels inside the Resolve UI.
   - **Fusion Fuse Plugins**: Creating custom image-processing and effect nodes using Lua.
   - Documents API boundaries, known quirks (like 1-based node indexing), and OS-specific setup steps.
+
+### 👤 [gnome-extension-dev](./skills/gnome-extension-dev/SKILL.md)
+* **Purpose**: Comprehensive handbook for creating, testing, debugging, and packaging GNOME Shell extensions (45+) using GJS with ESModules.
+* **Key Features**:
+  - **Extension Components**: Design patterns for St widgets, Clutter layout, Quick Settings toggles, panel buttons, and popup menus.
+  - **Preferences (GTK4/Adwaita)**: Subclassing `ExtensionPreferences` and binding GSettings schemas to GTK/Adwaita settings controls.
+  - **Advanced Topics**: Calling or exposing D-Bus services and managing localization with Gettext (PO/MO translations).
+  - **TypeScript & LSP Autocomplete**: Setting up editor autocompletion with `@girs/gnome-shell` type definitions.
+  - **Local Deployment & Testing**: Deploying locally and running isolated nested GNOME Shell instances (`dbus-run-session`) for testing.
 
 ### 🔀 [manage-prs](./skills/manage-prs/SKILL.md)
 * **Purpose**: Orchestrates a complete, safe workflow to batch triage, review, and merge multiple GitHub PRs with conflict resolution and verification.

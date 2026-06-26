@@ -13,7 +13,7 @@ Build extensions for GNOME Shell 45+ using GJS with ESModules. Refer to the [GJS
 
 **Process boundary** — `extension.js` runs inside `gnome-shell` (Clutter/St, no GTK). `prefs.js` runs separately (GTK4/Adwaita, no Shell APIs).
 
-**Injection** — Override Shell methods via `InjectionManager`; always clear in `disable()`.
+**Injection** — Override Shell methods via `InjectionManager`; always clear in `disable()`. See [Method Injection Reference](file:///home/tazztone/_coding/skills-server/skills/gnome-extension-dev/references/injection.md).
 
 ## Architecture
 
@@ -287,31 +287,7 @@ disable() {
 }
 ```
 
-### Method Override (InjectionManager)
-```js
-import { Extension, InjectionManager } from "resource:///org/gnome/shell/extensions/extension.js";
-import { Panel } from "resource:///org/gnome/shell/ui/panel.js";
 
-export default class MyExtension extends Extension {
-  enable() {
-    this._injectionManager = new InjectionManager();
-    this._injectionManager.overrideMethod(
-      Panel.prototype,
-      "toggleCalendar",
-      (originalMethod) => {
-        return function (...args) {
-          console.debug("Calendar toggled!");
-          originalMethod.call(this, ...args);
-        };
-      },
-    );
-  }
-  disable() {
-    this._injectionManager.clear();
-    this._injectionManager = null;
-  }
-}
-```
 
 ## Key Resources
 
