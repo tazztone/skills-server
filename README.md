@@ -9,6 +9,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 | Slug | Description |
 |------|-------------|
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root |
+| [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules |
 | [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches |
@@ -22,6 +23,15 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - Uses the **Three-Condition Filter**: Instructions must be *uninferable* (cannot be guessed), *critical* (prevents failure), and *undocumented* (not found in other files).
   - Automatically audits project layouts, configurations, and dependency manifests.
   - Verifies commands in the shell to ensure they are correct before adding them.
+
+### 🤖 [agentic-engineering](./skills/agentic-engineering/SKILL.md)
+* **Purpose**: Process guide to transition from casual vibe coding (ad-hoc prompting) to disciplined agentic engineering (using models within structured constraints, feedback loops, and verification gates).
+* **Key Features**:
+  - **Spec & Design Intent First**: Stop immediate implementation, decompose tasks, and design unit/integration tests before writing code.
+  - **Harness Setup**: Configure static context rules (`AGENTS.md`), MCP tools, sandboxes, and observability.
+  - **Context Optimization**: Keep static context footprints low, and push complex procedures to Dynamic Context (skills/scripts).
+  - **Factory Loop**: Run a continuous development loop (generate-test-correct) and setup evals for non-deterministic results.
+  - **QA & Error Audit**: Audit logic paths, swallowed errors, and hallucinated dependencies.
 
 ### 🎬 [davinci-resolve](./skills/davinci-resolve/SKILL.md)
 * **Purpose**: Comprehensive handbook for scripting, automation, and plugin/fuse development for DaVinci Resolve.
