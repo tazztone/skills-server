@@ -103,7 +103,39 @@ fastmcp run my_server.py:mcp
 
 Connect this repo to [Prefect Horizon](https://www.prefect.io/horizon/deploy) and use `my_server.py:mcp` as the entrypoint.
 
+## Installation & Usage (`npx skills`)
+
+Skills from this repository can be installed or run using the [`skills.sh`](https://skills.sh) CLI.
+
+### List available skills in this repo
+```bash
+npx skills add tazztone/skills-server/skills --list
+```
+
+### Install skills
+```bash
+# Interactive install (select skills and target agents)
+npx skills add tazztone/skills-server/skills
+
+# Install all skills for all agents automatically
+npx skills add tazztone/skills-server/skills --all
+
+# Install a specific skill from this repo
+npx skills add tazztone/skills-server/skills --skill create-agentsmd
+npx skills add tazztone/skills-server/skills --skill manage-prs
+
+# Install globally (user-level) instead of project-level
+npx skills add tazztone/skills-server/skills -g
+```
+
+### Use a skill without installing
+```bash
+npx skills use tazztone/skills-server/skills@manage-prs
+npx skills use tazztone/skills-server/skills@create-agentsmd
+```
+
 ## References
 
 - [skills.sh docs](https://skills.sh/docs) — CLI reference, install commands, leaderboard
 - [vercel-labs/skills](https://github.com/vercel-labs/skills) — the open-source CLI
+
