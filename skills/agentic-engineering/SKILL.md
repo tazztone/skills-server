@@ -1,33 +1,39 @@
 ---
 name: agentic-engineering
-version: 1.0.0
+version: 1.2.0
 description: >-
-  Produce production-grade software artifacts and changes using an evidence-driven,
-  specification-first workflow. Use for product specifications, technical docs,
+  Production-grade, evidence-driven engineering workflow with risk tiers,
+  context architecture, verification gates, and completion contracts for
+  codebases of any scale. Use for product specifications, technical docs,
   architecture, implementation, tests, CI/CD quality gates, agent evaluations,
   memory files, code review, debugging, and remediation planning.
 ---
 
 # Agentic Engineering
 
-## Mission
+## Mission & Operational Modes
 
 Turn intent into dependable, maintainable, and appropriately scoped outcomes. Treat generated output as a hypothesis until it is verified. Optimize for user value, correctness, security, operability, and ease of change—not code volume, novelty, or a persuasive demo.
 
 Use this skill whenever a task affects product behavior, an engineering artifact, a repository, an agent workflow, or a production decision.
 
+**Conductor mode:** Real-time, synchronous pairing — exploratory debugging and prototyping with the developer in the loop.
+
+**Orchestrator mode:** Asynchronous, high-level task delegation across multiple files and agents.
+
 ## Operating Principles
 
 1. **Specify before changing.** Establish the problem, users, constraints, non-goals, acceptance criteria, and evidence of success before implementation.
-2. **Inspect before assuming.** Read the relevant local conventions, architecture, interfaces, tests, deployment paths, and prior decisions. Do not invent APIs, packages, configuration, business rules, or observed results.
+2. **Inspect before assuming.** Read the relevant local conventions, architecture, interfaces, tests, deployment paths, and prior decisions. Prioritize live filesystem search and Language Server Protocol (LSP) integrations over pre-indexed RAG to obtain real-time, exact symbol definitions and references.
 3. **Make the smallest coherent change.** Prefer existing patterns and stable dependencies. Add abstraction, a service, a dependency, a workflow, or a framework only when it solves a demonstrated requirement that simpler code cannot.
 4. **Use deterministic checks for deterministic claims.** Compilation, types, linting, schemas, unit/integration/contract tests, security scans, and deployment checks are gates—not suggestions.
-5. **Evaluate judgment separately.** Use rubrics and, where appropriate, independent LM judges for ambiguity, relevance, completeness, policy compliance, UX quality, and agent trajectory. Never let an LM judge replace deterministic validation.
-6. **Preserve traceability.** Link requirement -> design decision -> implementation -> verification -> release evidence. Record important assumptions and decisions where future agents and humans can find them.
-7. **Fail safely.** Bound permissions, avoid destructive actions by default, protect secrets and personal data, make irreversible operations explicit, and provide rollback/recovery paths.
+5. **Evaluate judgment separately.** Use rubrics and, where appropriate, independent LM judges for ambiguity, relevance, completeness, policy compliance, UX quality, and agent trajectory.
+6. **Preserve traceability.** Link requirement → design decision → implementation → verification → release evidence. Record important assumptions and decisions where future agents and humans can find them.
+7. **Fail safely.** Bound permissions, protect secrets and personal data, make irreversible operations explicit, and provide rollback/recovery paths.
 8. **Escalate meaningful uncertainty.** Ask one focused question or present bounded options when ambiguity materially changes scope, risk, or architecture. Otherwise state the assumption and proceed.
 9. **Critique yourself.** Before completion, actively seek counterexamples, hidden coupling, security/privacy issues, operational failure modes, and unnecessary complexity.
 10. **Stop when the acceptance criteria are met.** Do not refactor unrelated code, broaden scope, or build speculative flexibility.
+11. **Route by cost.** In multi-agent environments, delegate deterministic sub-tasks (formatting, unit tests, linters) to smaller or cheaper models.
 
 ## Risk Levels
 
@@ -41,6 +47,15 @@ Classify work before acting. Apply the highest relevant level.
 | Critical | Destructive production action, regulated/safety-critical domain | Do not execute autonomously; require named owner approval, runbook, audit record, and reversible or rehearsed procedure |
 
 When risk is unclear, treat it as the next higher level.
+
+## Scaled Harness Architecture
+
+Patterns for keeping context lean in large repositories:
+
+- **Read-only subagent isolation.** Launch read-only subagents for broad file exploration and code mapping to keep search logs out of the main context window.
+- **Layered AGENTS.md.** Keep root `AGENTS.md` minimal — architecture pointers and non-negotiable gotchas only. Place modular rules in subdirectory `AGENTS.md` files, and run build/test commands within the target directory scope.
+- **Event-driven hooks.** Use session-start, post-edit, and pre-commit hooks to trigger linter checks and context updates deterministically, rather than relying on prompt instructions.
+- **Path-bound skills.** Bind skill files to directory paths so specialized rules load on-demand rather than polluting global context.
 
 ## Workflow
 
@@ -74,20 +89,32 @@ Create or update a concise task record before implementation:
 - Rollout, observability, rollback, and owner:
 ```
 
-Requirements must be testable. Replace vague language such as “fast,” “secure,” “user-friendly,” or “done” with measurable limits, scenarios, or explicit review criteria.
+Requirements must be testable. Replace vague language such as "fast," "secure," "user-friendly," or "done" with measurable limits, scenarios, or explicit review criteria.
 
 If requirements conflict, surface the conflict; do not silently choose one.
 
+> **Completion criterion:** Task record exists with testable acceptance criteria, explicit risk level, and no unresolved requirement conflicts.
+
 ### 2. Discover Context
 
-Collect only high-signal context needed for the task:
+Audit context across six categories:
 
-- Repository instructions, contribution rules, style/language conventions, and existing skills/memory.
-- Relevant modules, call sites, interfaces, schemas, migrations, configuration, feature flags, and tests.
-- Architecture decision records, product decisions, incidents, runbooks, CI workflows, and deployment configuration.
-- Runtime constraints: SLOs, telemetry, permissions, data classification, dependencies, and operational ownership.
+| Category | What to collect |
+|---|---|
+| **Instructions** | Repository `AGENTS.md`, contribution rules, style/language conventions, system prompts |
+| **Knowledge** | Architecture decision records, product decisions, incidents, runbooks, deployment config |
+| **Memory** | Session logs, project state, existing skills/memory files |
+| **Examples** | Reference implementations, existing patterns, call sites |
+| **Tools** | API schemas, CLI definitions, CI workflows, feature flags |
+| **Guardrails** | SLOs, permissions, data classification, security constraints, operational ownership |
 
-Summarize findings in a compact working brief. Distinguish **observed facts**, **inferences**, and **assumptions**. Load deep reference material only when it is relevant; do not flood context with the whole repository.
+Verify the repository has an `AGENTS.md` at root. If missing, create it or invoke the `create-agentsmd` skill before proceeding.
+
+In large repositories, delegate broad exploration to read-only subagents (see Scaled Harness Architecture).
+
+Summarize findings in a compact working brief. Distinguish **observed facts**, **inferences**, and **assumptions**. Load deep reference material only when it is relevant.
+
+> **Completion criterion:** Working brief exists distinguishing observed facts, inferences, and assumptions. Root `AGENTS.md` verified present.
 
 ### 3. Design Proportionately
 
@@ -111,12 +138,15 @@ Use a lightweight ADR when the decision is hard to reverse, crosses boundaries, 
 - Keep boundaries explicit: ownership, inputs/outputs, error semantics, authentication/authorization, and data lifecycle.
 - If a proposed abstraction has one use, no concrete second use, and adds indirection, do not add it.
 - For distributed or async work, define delivery guarantees, deduplication/idempotency, ordering assumptions, timeouts, retry bounds, dead-letter behavior, and observability.
+- Prefer open interoperability standards for tool and delegation interfaces over proprietary protocols.
+
+> **Completion criterion:** Plan covers approach, alternatives, affected components, failure behavior, test strategy, and rollout. ADR filed if decision is hard to reverse.
 
 ### 4. Implement in Small, Verifiable Increments
 
 1. Make the smallest vertical slice that proves the main behavior.
 2. Add or update tests with the change; do not defer them to a final cleanup pass.
-3. Run focused checks after each meaningful increment.
+3. Run focused checks after each meaningful increment. Use event-driven hooks for post-edit linting where available.
 4. Inspect the diff for accidental scope, generated noise, secrets, dead code, and changed contracts.
 5. Refactor only when it makes the completed change clearer, safer, or cheaper to maintain.
 
@@ -130,6 +160,8 @@ Follow these implementation rules:
 - Add structured logs, metrics, traces, health signals, and alerts proportional to operational risk.
 - Pin or verify dependencies according to repository policy; confirm packages, APIs, and commands exist before using them.
 - Keep configuration typed/validated where the stack supports it; document defaults and safe failure modes.
+
+> **Completion criterion:** Each increment passes its focused checks. Diff inspected for accidental scope, secrets, and changed contracts.
 
 ### 5. Verify in Layers
 
@@ -150,6 +182,8 @@ Test behavior rather than implementation detail. Include happy paths, invalid in
 
 Do not claim a check passed unless it was actually run and its result observed. Report skipped checks, why they were skipped, and the residual risk.
 
+> **Completion criterion:** Evidence matrix complete. No claim of passing without observed result. Skipped checks documented with residual risk.
+
 ### 6. Gate CI/CD
 
 Express quality requirements as executable gates wherever possible. Suggested pipeline order:
@@ -165,6 +199,8 @@ Express quality requirements as executable gates wherever possible. Suggested pi
 9. Production promotion only after required approvals and rollback readiness for the risk level.
 
 CI must fail closed on mandatory gates. Make flaky checks visible and fix/quarantine them with an owner and expiry; never normalize rerunning CI until green.
+
+> **Completion criterion:** All mandatory gates pass closed. Flaky checks quarantined with owner and expiry.
 
 ### 7. Review and Critique
 
@@ -185,6 +221,8 @@ Perform a structured review before presenting or merging:
 
 For high-risk or cross-cutting changes, assign a separate critic pass that did not author the solution. The critic must try to falsify the design and return concrete findings with severity, evidence, and a recommended fix—not generic praise.
 
+> **Completion criterion:** Self-review checklist answered. High-risk changes have an independent critic pass with concrete findings.
+
 ### 8. Release and Learn
 
 For releaseable work, provide:
@@ -196,87 +234,17 @@ For releaseable work, provide:
 - Rollback procedure, data recovery steps, and owner.
 - Known limitations, follow-up issues, and expiry dates for temporary measures.
 
-After incidents, failed evaluations, regressions, or repeated agent mistakes: identify the failed assumption or missing control; add the smallest durable fix to the spec, test suite, policy, tool constraint, memory, or CI gate; then add a regression check. Do not merely patch the latest symptom.
+After incidents, failed evaluations, regressions, or repeated agent mistakes: identify the failed assumption or missing control; add the smallest durable fix to the spec, test suite, policy, tool constraint, memory, or CI gate; then add a regression check.
+
+> **Completion criterion:** Change summary, verification evidence, rollout plan, rollback procedure, and open items documented.
 
 ## Artifact Standards
 
-### Product Specifications
-
-Write product specs that are executable by people and agents:
-
-- Problem, target user, context, desired outcome, and non-goals.
-- User journeys and acceptance scenarios in Given/When/Then form.
-- Functional behavior, edge/failure cases, and explicit policy decisions.
-- Non-functional requirements with thresholds: performance, availability, accessibility, privacy, security, localization, and cost where relevant.
-- Analytics/telemetry, rollout, support/operations implications, dependencies, and decision owner.
-
-Do not prescribe implementation unless it is a real constraint. Flag ambiguity instead of concealing it in prose.
-
-### Technical Documentation
-
-Keep docs close to the source of truth and update them with behavior changes. Explain purpose, prerequisites, interfaces, normal and failure behavior, examples, security/data handling, configuration, operational procedures, and how claims can be verified.
-
-Prefer runnable examples and links to canonical schemas, code, or commands. Remove or correct stale docs in the same change when discovered.
-
-### Memory Files
-
-Memory is a curated, versioned operating manual—not a transcript.
-
-Store stable, high-value facts: architecture boundaries, domain invariants, conventions, commands, deployment/recovery procedures, ownership, important decisions, and recurring failure patterns. Each entry should state scope, source/evidence, date, owner where relevant, and an expiry/review trigger when it may age.
-
-Do not store secrets, personal data, lengthy logs, unverified claims, ephemeral task chatter, or duplicated documentation. When memory conflicts with code, tests, or a newer authoritative source, flag and resolve the conflict; do not perpetuate it.
-
-### Agent Evaluations and LM Judges
-
-Define an evaluation set before optimizing prompts or workflows:
-
-- Representative normal cases, adversarial/edge cases, regressions, and out-of-distribution cases.
-- A scoring rubric with observable anchors, weights, pass thresholds, and disqualifying failures.
-- Deterministic assertions for facts, schemas, safety, tool permissions, and side effects.
-- Independent judge prompts that quote the rubric, require evidence, separate “insufficient evidence” from failure, and return structured scores plus rationale.
-- Calibration against human-reviewed examples; periodically measure judge agreement and investigate drift.
-
-Use pairwise comparison or multiple independent judges for subjective outputs when the decision is important. Treat judge scores as signals, not ground truth; route borderline, high-impact, or safety-sensitive outcomes to human review.
-
-### Architecture Reviews
-
-Review architecture by asking:
-
-- Does it satisfy the current requirement with fewer moving parts?
-- Are ownership, boundaries, contracts, data classification, and trust boundaries explicit?
-- What are the likely failure modes, blast radius, dependencies, and recovery paths?
-- Are consistency, availability, latency, cost, and operability trade-offs documented?
-- Can it be tested locally and observed in production?
-- What decision would be hard or costly to reverse, and is it recorded?
-
-Output a decision, rationale, alternatives, risks, required controls, and review date—not just observations.
+Detailed standards for product specs, technical docs, memory files, agent evaluations, and architecture reviews are in [`references/artifact-standards.md`](references/artifact-standards.md).
 
 ## Self-Diagnosis Protocol
 
-When a test, build, deployment, evaluation, or user outcome fails, do not repeatedly retry blindly.
-
-1. **Capture evidence:** exact failure, inputs, environment, logs/traces, revision, and reproducibility.
-2. **Classify:** requirement gap, context/memory gap, design flaw, implementation defect, test/evaluation defect, environment/configuration issue, dependency issue, or operational regression.
-3. **Minimize:** isolate a smallest reproducer and identify the first failing boundary.
-4. **Form competing hypotheses:** state predicted evidence for each; test the cheapest discriminating hypothesis first.
-5. **Fix cause, not symptom:** choose the narrowest durable correction; update spec/design only if the understanding changed.
-6. **Verify broadly enough:** run the focused regression plus affected adjacent checks.
-7. **Learn:** add a regression test/eval, guardrail, memory entry, or CI rule if it prevents recurrence.
-
-When critiquing an architecture or proposing a fix, use this format:
-
-```md
-Finding: <specific issue>
-Severity: blocker | high | medium | low
-Evidence: <observed code, test, trace, requirement, or metric>
-Impact: <user/business/operational consequence>
-Root cause or uncertainty: <why this occurs, or what is unknown>
-Options: <smallest safe fix>; <alternative and trade-off>
-Recommendation: <chosen option and why>
-Verification: <tests, gates, rollout signals>
-```
-
-Never present speculation as diagnosis. If evidence is insufficient, say what must be observed next.
+Structured diagnosis protocol for failed tests, builds, deployments, evaluations, or user outcomes is in [`references/self-diagnosis.md`](references/self-diagnosis.md).
 
 ## Completion Contract
 
