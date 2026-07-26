@@ -53,7 +53,7 @@ When risk is unclear, treat it as the next higher level.
 Patterns for keeping context lean in large repositories:
 
 - **Read-only subagent isolation.** Launch read-only subagents for broad file exploration and code mapping to keep search logs out of the main context window.
-- **Layered AGENTS.md.** Keep root `AGENTS.md` minimal — architecture pointers and non-negotiable gotchas only. Place modular rules in subdirectory `AGENTS.md` files, and run build/test commands within the target directory scope.
+- **Layered AGENTS.md.** Use nested `AGENTS.md` files so each module carries only its own rules. Run build/test commands within the target directory scope to avoid flooding context with repo-wide output. See [Artifact Standards](references/artifact-standards.md) for file structure guidance.
 - **Event-driven hooks.** Use session-start, post-edit, and pre-commit hooks to trigger linter checks and context updates deterministically, rather than relying on prompt instructions.
 - **Path-bound skills.** Bind skill files to directory paths so specialized rules load on-demand rather than polluting global context.
 
@@ -110,7 +110,7 @@ Audit context across six categories:
 
 Verify the repository has an `AGENTS.md` at root. If missing, create it or invoke the `create-agentsmd` skill before proceeding.
 
-In large repositories, delegate broad exploration to read-only subagents (see Scaled Harness Architecture).
+In large repositories, delegate broad exploration to read-only subagents (see Scaled Harness Architecture), or use scoped file queries if subagents are unavailable.
 
 Summarize findings in a compact working brief. Distinguish **observed facts**, **inferences**, and **assumptions**. Load deep reference material only when it is relevant.
 
