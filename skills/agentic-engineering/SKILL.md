@@ -2,9 +2,9 @@
 name: agentic-engineering
 version: 1.2.0
 description: >-
-  Production-grade, evidence-driven engineering workflow with risk tiers,
-  context architecture, verification gates, and completion contracts for
-  codebases of any scale. Use for product specifications, technical docs,
+  Agentic engineering workflow: evidence-driven, production-grade, with risk
+  tiers, context architecture, verification gates, and completion contracts
+  for codebases of any scale. Use for product specifications, technical docs,
   architecture, implementation, tests, CI/CD quality gates, agent evaluations,
   memory files, code review, debugging, and remediation planning.
 ---
@@ -13,13 +13,13 @@ description: >-
 
 ## Mission & Operational Modes
 
-Turn intent into dependable, maintainable, and appropriately scoped outcomes. Treat generated output as a hypothesis until it is verified. Optimize for user value, correctness, security, operability, and ease of change—not code volume, novelty, or a persuasive demo.
+Build the factory that builds the software. Treat generated output as a hypothesis until it is verified. Optimize for user value, correctness, security, operability, and ease of change—not code volume, novelty, or a persuasive demo.
 
 Use this skill whenever a task affects product behavior, an engineering artifact, a repository, an agent workflow, or a production decision.
 
-**Conductor mode:** Real-time, synchronous pairing — exploratory debugging and prototyping with the developer in the loop.
+**Conductor mode:** Real-time, synchronous pairing — exploratory debugging and prototyping with the developer in the loop. Keep context narrow; iterate on a single focus area.
 
-**Orchestrator mode:** Asynchronous, high-level task delegation across multiple files and agents.
+**Orchestrator mode:** Asynchronous, high-level task delegation across multiple files and agents. Decompose into sub-tasks before proceeding.
 
 ## Operating Principles
 
@@ -31,7 +31,7 @@ Use this skill whenever a task affects product behavior, an engineering artifact
 6. **Preserve traceability.** Link requirement → design decision → implementation → verification → release evidence. Record important assumptions and decisions where future agents and humans can find them.
 7. **Fail safely.** Bound permissions, protect secrets and personal data, make irreversible operations explicit, and provide rollback/recovery paths.
 8. **Escalate meaningful uncertainty.** Ask one focused question or present bounded options when ambiguity materially changes scope, risk, or architecture. Otherwise state the assumption and proceed.
-9. **Critique yourself.** Before completion, actively seek counterexamples, hidden coupling, security/privacy issues, operational failure modes, and unnecessary complexity.
+9. **Assume the 80% gap.** AI gets the first 80% right; the remaining 20% — edge cases, error handling, subtle correctness — is where judgment matters. Before completion, actively seek counterexamples, hidden coupling, security/privacy issues, operational failure modes, and unnecessary complexity.
 10. **Stop when the acceptance criteria are met.** Do not refactor unrelated code, broaden scope, or build speculative flexibility.
 11. **Route by cost.** In multi-agent environments, delegate deterministic sub-tasks (formatting, unit tests, linters) to smaller or cheaper models.
 
@@ -48,16 +48,24 @@ Classify work before acting. Apply the highest relevant level.
 
 When risk is unclear, treat it as the next higher level.
 
-## Scaled Harness Architecture
+## Context Management
 
-Patterns for keeping context lean in large repositories:
+Keep context lean, especially in large repositories:
 
-- **Read-only subagent isolation.** Launch read-only subagents for broad file exploration and code mapping to keep search logs out of the main context window.
-- **Layered AGENTS.md.** Use nested `AGENTS.md` files so each module carries only its own rules. Run build/test commands within the target directory scope to avoid flooding context with repo-wide output. See [Artifact Standards](references/artifact-standards.md) for file structure guidance.
-- **Event-driven hooks.** Use session-start, post-edit, and pre-commit hooks to trigger linter checks and context updates deterministically, rather than relying on prompt instructions.
-- **Path-bound skills.** Bind skill files to directory paths so specialized rules load on-demand rather than polluting global context.
+- **Scope searches to the target module.** Prefer focused file reads and symbol lookups over repo-wide searches. When subagent tools are available, delegate broad exploration to read-only subagents to keep search logs out of the main context window; otherwise use scoped file queries.
+- **Run build/test at module scope.** Execute build and test commands within the target directory to avoid flooding context with repo-wide output.
+- **Read nested AGENTS.md files.** Check for subdirectory-level `AGENTS.md` with module-specific rules in addition to the root file. See [Artifact Standards](references/artifact-standards.md) for structure guidance.
+- **Lean on hooks when available.** If the harness provides event-driven hooks (post-edit linting, pre-commit checks), rely on them rather than manually re-running checks.
 
 ## Workflow
+
+Scale to the task. Apply only the steps warranted by the risk level:
+
+| Risk | Minimum steps |
+|---|---|
+| Low | 1 → 4 → 5 |
+| Medium | 1 → 2 → 3 → 4 → 5 → 7 |
+| High / Critical | All steps, in order |
 
 ### 1. Frame the Task
 
@@ -93,7 +101,9 @@ Requirements must be testable. Replace vague language such as "fast," "secure," 
 
 If requirements conflict, surface the conflict; do not silently choose one.
 
-> **Completion criterion:** Task record exists with testable acceptance criteria, explicit risk level, and no unresolved requirement conflicts.
+Identify the operational mode: **conductor** (synchronous, exploratory) or **orchestrator** (async, delegatable). Orchestrator tasks should be decomposed into sub-tasks at this stage.
+
+> **Completion criterion:** Task record exists with testable acceptance criteria, explicit risk level, and no unresolved requirement conflicts. Operational mode identified.
 
 ### 2. Discover Context
 
@@ -110,11 +120,11 @@ Audit context across six categories:
 
 Verify the repository has an `AGENTS.md` at root. If missing, create it or invoke the `create-agentsmd` skill before proceeding.
 
-In large repositories, delegate broad exploration to read-only subagents (see Scaled Harness Architecture), or use scoped file queries if subagents are unavailable.
+In large repositories, scope searches to the target module (see Context Management).
 
 Summarize findings in a compact working brief. Distinguish **observed facts**, **inferences**, and **assumptions**. Load deep reference material only when it is relevant.
 
-> **Completion criterion:** Working brief exists distinguishing observed facts, inferences, and assumptions. Root `AGENTS.md` verified present.
+> **Completion criterion:** Working brief covers all six context categories, distinguishing observed facts from inferences and assumptions. Root `AGENTS.md` verified present.
 
 ### 3. Design Proportionately
 
@@ -146,7 +156,7 @@ Use a lightweight ADR when the decision is hard to reverse, crosses boundaries, 
 
 1. Make the smallest vertical slice that proves the main behavior.
 2. Add or update tests with the change; do not defer them to a final cleanup pass.
-3. Run focused checks after each meaningful increment. Use event-driven hooks for post-edit linting where available.
+3. Run focused checks after each meaningful increment.
 4. Inspect the diff for accidental scope, generated noise, secrets, dead code, and changed contracts.
 5. Refactor only when it makes the completed change clearer, safer, or cheaper to maintain.
 
@@ -161,7 +171,7 @@ Follow these implementation rules:
 - Pin or verify dependencies according to repository policy; confirm packages, APIs, and commands exist before using them.
 - Keep configuration typed/validated where the stack supports it; document defaults and safe failure modes.
 
-> **Completion criterion:** Each increment passes its focused checks. Diff inspected for accidental scope, secrets, and changed contracts.
+> **Completion criterion:** Each increment passes its focused checks. Diff verified clean of accidental scope, secrets, dead code, and changed contracts.
 
 ### 5. Verify in Layers
 
@@ -221,7 +231,7 @@ Perform a structured review before presenting or merging:
 
 For high-risk or cross-cutting changes, assign a separate critic pass that did not author the solution. The critic must try to falsify the design and return concrete findings with severity, evidence, and a recommended fix—not generic praise.
 
-> **Completion criterion:** Self-review checklist answered. High-risk changes have an independent critic pass with concrete findings.
+> **Completion criterion:** Every self-review question addressed. High-risk changes have an independent critic pass with concrete, severity-tagged findings.
 
 ### 8. Release and Learn
 
