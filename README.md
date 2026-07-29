@@ -8,21 +8,15 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 | Slug | Description |
 |------|-------------|
-| [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root |
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering |
+| [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety |
+| [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules |
 | [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches |
 | [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal |
 
 ## Detailed Skill Overviews
-
-### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
-* **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
-* **Key Features**:
-  - Uses the **Three-Condition Filter**: Instructions must be *uninferable* (cannot be guessed), *critical* (prevents failure), and *undocumented* (not found in other files).
-  - Automatically audits project layouts, configurations, and dependency manifests.
-  - Verifies commands in the shell to ensure they are correct before adding them.
 
 ### 🤖 [agentic-engineering](./skills/agentic-engineering/SKILL.md)
 * **Purpose**: Process guide to transition from casual vibe coding (ad-hoc prompting) to disciplined agentic engineering (using models within structured constraints, feedback loops, and verification gates).
@@ -32,6 +26,22 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Context Optimization**: Keep static context footprints low, and push complex procedures to Dynamic Context (skills/scripts).
   - **Factory Loop**: Run a continuous development loop (generate-test-correct) and setup evals for non-deterministic results.
   - **QA & Error Audit**: Audit logic paths, swallowed errors, and hallucinated dependencies.
+
+### ⚡ [agy-delegate](./skills/agy-delegate/SKILL.md)
+* **Purpose**: Delegate bounded coding tasks to the Google Antigravity CLI (`agy`) as a background implementer, while maintaining strict orchestrator review, dirty-worktree protection, and explicit execution tracking. (Based on [amElnagdy/delegate-skills](https://github.com/amElnagdy/delegate-skills/tree/master/skills/agy-delegate) with custom relay tweaks).
+* **Key Features**:
+  - **Relay Dispatcher (`relay.mjs`)**: Wraps `agy --print` to run tasks asynchronously and output a structured `result.json` report.
+  - **Granular Execution Statuses**: Distinguishes `completed`, `completed_without_report`, `blocked_by_permission`, and `failed` states rather than relying on CLI exit codes alone.
+  - **Worktree Baseline Protection**: Refuses execution in dirty worktrees by default (overrideable via `--allow-dirty`) and records `baselineTouchedFiles` to cleanly isolate changes.
+  - **Permission & Preflight Diagnostics**: Detects permission denial messages and sandboxing requirements without misrepresenting blocked runs as successful.
+  - **Explicit Session Retries**: Prefers `--conversation <id>` retry targeting over `--resume-last` session guessing.
+
+### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
+* **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
+* **Key Features**:
+  - Uses the **Three-Condition Filter**: Instructions must be *uninferable* (cannot be guessed), *critical* (prevents failure), and *undocumented* (not found in other files).
+  - Automatically audits project layouts, configurations, and dependency manifests.
+  - Verifies commands in the shell to ensure they are correct before adding them.
 
 ### 🎬 [davinci-resolve](./skills/davinci-resolve/SKILL.md)
 * **Purpose**: Comprehensive handbook for scripting, automation, and plugin/fuse development for DaVinci Resolve.
@@ -121,6 +131,7 @@ npx skills add tazztone/skills-server/skills
 npx skills add tazztone/skills-server/skills --all
 
 # Install a specific skill from this repo
+npx skills add tazztone/skills-server/skills --skill agy-delegate
 npx skills add tazztone/skills-server/skills --skill create-agentsmd
 npx skills add tazztone/skills-server/skills --skill manage-prs
 
