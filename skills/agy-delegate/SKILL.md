@@ -35,10 +35,11 @@ Code; treat other orchestrators as designed-for, not yet proven.
 ## Prerequisites (check once)
 
 1. `command -v agy` and `agy help` succeed. If not, install the Antigravity CLI and complete first-launch setup.
-2. `agy models` succeeds. That proves the CLI can authenticate and list the available model labels.
-3. You are in (or will point `--cd` at) the target git repository.
-4. Start from a clean worktree. The relay refuses ambiguous baselines by default; pass `--allow-dirty`
-   only after recording the existing changes and accepting that review attribution is less precise.
+2. `agy models` succeeds. That proves the CLI can authenticate, list available model labels, write logs, and open local sockets outside the sandbox.
+3. Check headless permissions: Antigravity headless mode requires explicit command permission allow-rules (e.g., `command(*)` or specific command rules). `--sandbox` mode alone does not guarantee command execution without configured permissions.
+4. Check managed environments: if user caches (e.g. `~/.cache/uv`) are read-only, configure `UV_CACHE_DIR=/tmp/...` in the execution environment.
+5. You are in (or will point `--cd` at) the target git repository.
+6. Start from a clean worktree. The relay refuses ambiguous baselines by default; pass `--allow-dirty` only when intentionally resuming against existing uncommitted agent work or after recording baseline changes.
 
 ## Choose the implementer model
 
@@ -55,7 +56,8 @@ Run these five steps per task. Steps 1, 4, and 5 are your judgment; 2 and 3 are 
 Antigravity sees only the text you send plus what it can inspect in the workspace - no chat history, no
 shared context. Everything the task needs goes in the brief: the goal, the current state, what to
 change, what to leave untouched, the project's **actual** gate commands, and a report contract. Tell
-Antigravity it will **not** commit (you will). Keep one task per brief. Full guidance and a template:
+Antigravity it will **not** commit (you will). Include preflight or connection timeouts for test suites
+that depend on external services (e.g., PostgreSQL fixtures) so tests do not hang. Keep one task per brief. Full guidance and a template:
 [references/writing-the-brief.md](references/writing-the-brief.md).
 
 ### 2. Dispatch
@@ -68,7 +70,8 @@ below is this skill's installed directory - the folder containing this `SKILL.md
 node "<skill-dir>/scripts/relay.mjs" --brief brief.txt --cd /path/to/repo
 # choose a model label:                 add --model "<label from agy models>"
 # enable Antigravity terminal sandbox:  add --sandbox
-# resume the most recent conversation:  add --resume-last  (delta brief only)
+# resume a specific conversation:       add --conversation <id> --allow-dirty  (delta brief)
+# resume the most recent conversation:  add --resume-last --allow-dirty         (delta brief)
 # see all options:                      node .../relay.mjs --help
 ```
 
@@ -76,6 +79,7 @@ The helper starts a fresh Antigravity project by default and passes `--add-dir <
 path, absolute) so `agy` has an explicit workspace. It does **not** pass `--dangerously-skip-permissions` by default.
 Use `--conversation <id>` for a specific retry when the previous result recorded a conversation ID.
 Use `--resume-last` only when intentionally continuing the most recent Antigravity conversation.
+Resuming against existing uncommitted agent work requires `--allow-dirty`.
 `--sandbox` enables Antigravity's terminal sandbox but may still require a configured headless
 permission allow-rule; it is not a substitute for permission configuration.
 Mechanics, flags, and the `result.json` shape: [references/dispatch-and-poll.md](references/dispatch-and-poll.md).
@@ -100,13 +104,15 @@ printed in full on stdout between the report markers.
 Antigravity's `result.json` includes its own final message and any gate claims. **Re-verify, don't
 accept:**
 
-- **Re-run the project's gates yourself** (the test/lint/build commands from step 1).
+- **Re-run the project's gates yourself** (the test/lint/build commands from step 1). Verify database/service preflights or timeouts first if pytest depends on fixtures like PostgreSQL.
 - **Read the diff** against the brief: did Antigravity do what was asked, nothing more and nothing less?
   `touchedFiles` in the result is your starting point.
+- **Grep for dangling legacy tokens** (e.g. deleted CSS classes, unused imports, or removed routes) in touched files and surrounding modules.
 - **Compare against the baseline** recorded in `baselineTouchedFiles`. If the run used `--allow-dirty`,
   do not assume every reported path was created by Antigravity.
 - **Inspect permission failures** in `stderrTail`, `stderrPath`, and `error` before retrying. Do not
   infer success from exit code `0` alone.
+- **Run direct contract checks** (e.g. validating route redirects or status transitions) if full integration test suites are blocked by missing external dependencies, but do not treat them as full integration replacements.
 - **Run the relevant guard skills** on the diff if you have them installed.
 - For schema/migration changes, round-trip them; for removals, grep for dangling references.
 

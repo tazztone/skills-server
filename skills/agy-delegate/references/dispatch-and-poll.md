@@ -4,7 +4,7 @@
 captures the final response, and writes a structured `result.json`. Your job collapses to: run one
 command, then read one file.
 
-## Before the first run: check the binary
+## Before the first run: check the binary and permissions
 
 ```bash
 command -v agy
@@ -12,8 +12,11 @@ agy help
 agy models
 ```
 
-`agy models` proves the CLI can authenticate and list available model labels. The relay records the
-version it can infer from `agy changelog` into `result.json`.
+- `agy help` confirms the binary is installed and operational.
+- `agy models` proves the CLI can authenticate, list available model labels, write logs, and open local sockets outside the sandbox.
+- **Headless Permissions:** Ensure `permissions.allow` rules exist for command and file operations. Antigravity headless mode requires explicit command approvals (e.g., `command(*)` or specific command rules). `--sandbox` mode alone does not guarantee execution if commands are blocked by permissions.
+- **Managed Cache Directories:** In environments where default user caches (such as `~/.cache/uv`) are read-only, set `UV_CACHE_DIR=/tmp/...` in the execution environment prior to running tool commands.
+- The relay records the version it can infer from `agy changelog` into `result.json`.
 
 ## Dispatching
 

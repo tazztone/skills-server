@@ -25,8 +25,10 @@ handoff; inspect `completed_without_report` and `blocked_by_permission` as incom
 
 For changes with their own verification shape, go further:
 
+- **Database & Fixture Preflights:** Check required services before running tests (e.g. verify PostgreSQL is accessible on port 5433 or set bounded connection timeouts) to prevent `pytest` from hanging indefinitely on autouse DB fixtures.
+- **Direct Contract Checks:** If the full integration suite is blocked by unavailable external services/databases, run focused contract checks (such as verifying route redirects, outbox transitions, or direct function outputs) as interim validation — while noting that they do not replace full integration testing.
 - **Migrations / schema:** round-trip them and check for drift.
-- **Removals / renames:** grep the codebase for dangling references.
+- **Removals / renames:** grep the codebase for dangling references and legacy CSS selectors/tokens.
 - **Anything stateful:** exercise the actual behavior, don't just confirm it compiles.
 
 ## Read the diff against the brief
@@ -44,6 +46,7 @@ changes from implementer changes before reviewing scope:
 Generated code fails in systematic ways that gates are structurally blind to. Walk these against every
 diff before you commit:
 
+- **Dangling legacy tokens** - grep for deleted CSS classes (e.g. `.badge-bestaetigt`), old enum variants, or unused imports in stylesheets and adjacent files.
 - **Hardcoded success or fixture data** on a path the brief says does real work.
 - **Catch-all error handling that returns a default** instead of propagating or recovering explicitly.
 - **Unverified imports and API calls** - confirm new dependencies, methods, and signatures exist in the
