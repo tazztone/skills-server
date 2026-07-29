@@ -6,20 +6,24 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ## Skill Index
 
-| Slug | Description |
-|------|-------------|
-| [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering |
-| [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety |
-| [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root |
-| [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) |
-| [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules |
-| [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches |
-| [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal |
+| Slug | Description | Install Command |
+|------|-------------|-----------------|
+| [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
+| [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
+| [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
+| [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
+| [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
+| [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches | `npx skills add tazztone/skills-server/skills --skill manage-prs` |
+| [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal | `npx skills add tazztone/skills-server/skills --skill signal-stickers` |
 
 ## Detailed Skill Overviews
 
 ### 🤖 [agentic-engineering](./skills/agentic-engineering/SKILL.md)
 * **Purpose**: Process guide to transition from casual vibe coding (ad-hoc prompting) to disciplined agentic engineering (using models within structured constraints, feedback loops, and verification gates).
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill agentic-engineering
+  ```
 * **Key Features**:
   - **Spec & Design Intent First**: Stop immediate implementation, decompose tasks, and design unit/integration tests before writing code.
   - **Harness Setup**: Configure static context rules (`AGENTS.md`), MCP tools, sandboxes, and observability.
@@ -29,6 +33,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ### ⚡ [agy-delegate](./skills/agy-delegate/SKILL.md)
 * **Purpose**: Delegate bounded coding tasks to the Google Antigravity CLI (`agy`) as a background implementer, while maintaining strict orchestrator review, dirty-worktree protection, and explicit execution tracking. (Based on [amElnagdy/delegate-skills](https://github.com/amElnagdy/delegate-skills/tree/master/skills/agy-delegate) with custom relay tweaks).
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill agy-delegate
+  ```
 * **Key Features**:
   - **Relay Dispatcher (`relay.mjs`)**: Wraps `agy --print` to run tasks asynchronously and output a structured `result.json` report.
   - **Granular Execution Statuses**: Distinguishes `completed`, `completed_without_report`, `blocked_by_permission`, and `failed` states rather than relying on CLI exit codes alone.
@@ -38,6 +46,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill create-agentsmd
+  ```
 * **Key Features**:
   - Uses the **Three-Condition Filter**: Instructions must be *uninferable* (cannot be guessed), *critical* (prevents failure), and *undocumented* (not found in other files).
   - Automatically audits project layouts, configurations, and dependency manifests.
@@ -45,6 +57,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ### 🎬 [davinci-resolve](./skills/davinci-resolve/SKILL.md)
 * **Purpose**: Comprehensive handbook for scripting, automation, and plugin/fuse development for DaVinci Resolve.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill davinci-resolve
+  ```
 * **Key Features**:
   - **Scripting API**: Integrations using Python 3.6–3.12 and Lua to automate project timelines, media ingestion, color grading, and rendering.
   - **Workflow Integrations**: Creating Studio-only custom Electron (JS) panels inside the Resolve UI.
@@ -53,6 +69,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ### 👤 [gnome-extension-dev](./skills/gnome-extension-dev/SKILL.md)
 * **Purpose**: Comprehensive handbook for creating, testing, debugging, and packaging GNOME Shell extensions (45+) using GJS with ESModules.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill gnome-extension-dev
+  ```
 * **Key Features**:
   - **Extension Components**: Design patterns for St widgets, Clutter layout, Quick Settings toggles, panel buttons, and popup menus.
   - **Preferences (GTK4/Adwaita)**: Subclassing `ExtensionPreferences` and binding GSettings schemas to GTK/Adwaita settings controls.
@@ -62,6 +82,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ### 🔀 [manage-prs](./skills/manage-prs/SKILL.md)
 * **Purpose**: Orchestrates a complete, safe workflow to batch triage, review, and merge multiple GitHub PRs with conflict resolution and verification.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill manage-prs
+  ```
 * **Key Features**:
   - **Phase-Gated Process**: Runs from collection/analysis to planning, local merge execution, and final test suite verification.
   - **Conflict Resolution**: Safely handles git conflicts locally and checks for overlapping changes between pull requests.
@@ -70,6 +94,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 
 ### 🎨 [signal-stickers](./skills/signal-stickers/SKILL.md)
 * **Purpose**: Design, formatting, and publishing handbook for creating and uploading custom static and animated sticker packs to Signal.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill signal-stickers
+  ```
 * **Key Features**:
   - **Canvas & File Requirements**: Guides on canvas sizing (512x512px), file formats (PNG, WebP, APNG), size limits (300KB), and animation duration limits (3s max, no GIFs).
   - **Best Practices**: Safe zones/margins, transparency, and stroke outlines for seamless rendering in both light and dark modes.
