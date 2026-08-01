@@ -167,15 +167,29 @@ npx skills add tazztone/skills-server/skills --skill manage-prs
 npx skills add tazztone/skills-server/skills -g
 ```
 
-### Update installed skills
+### Update skills
+
+#### Update specifically from this repo
 ```bash
-# Update all installed project skills
-npx skills update
+# Re-fetch/update all skills from this repo for all agents
+npx skills add tazztone/skills-server/skills --all -y
 
-# Update all installed global skills
-npx skills update -g
+# Re-fetch/update all skills from this repo globally
+npx skills add tazztone/skills-server/skills --all -g -y
 
-# Update a specific skill
+# Re-fetch/update a specific skill from this repo
+npx skills add tazztone/skills-server/skills --skill agentic-engineering -y
+```
+
+#### Update installed skills across sources
+```bash
+# Update project skills
+npx skills update -p -y
+
+# Update global skills
+npx skills update -g -y
+
+# Update a specific installed skill
 npx skills update agentic-engineering
 ```
 
