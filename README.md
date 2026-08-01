@@ -167,6 +167,18 @@ npx skills add tazztone/skills-server/skills --skill manage-prs
 npx skills add tazztone/skills-server/skills -g
 ```
 
+### Update installed skills
+```bash
+# Update all installed project skills
+npx skills update
+
+# Update all installed global skills
+npx skills update -g
+
+# Update a specific skill
+npx skills update agentic-engineering
+```
+
 ### Use a skill without installing
 ```bash
 npx skills use tazztone/skills-server/skills@manage-prs
