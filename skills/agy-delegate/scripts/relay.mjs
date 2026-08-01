@@ -46,8 +46,8 @@
  *                           Auto-approve Antigravity tool permission requests. Use only with human approval.
  *   --print-timeout <dur>   Timeout for print mode (default: 30m).
  *   --add-dir <dir>         Add an extra workspace directory. Repeatable.
- *   --out-dir <dir>         Where to write run artifacts (default: a fresh dir under
- *                           the system temp dir, so the repo under review stays clean).
+ *   --out-dir <dir>         Where to write run artifacts (default: <repo>/.git/delegate-relay
+ *                           inside the repo so workspace stays clean and no outside-workspace prompts trigger).
  *   -h, --help              Show this help.
  *
  * Result: written to <out-dir>/result.json and summarized on stdout -
@@ -252,7 +252,11 @@ function timestamp() {
 
 function prepareRunDir(opts, brief) {
   const startedAt = new Date().toISOString();
-  const outDir = opts.outDir || join(tmpdir(), "delegate-relay", `${basename(opts.cd) || "repo"}-${timestamp()}`);
+  const gitDir = join(opts.cd, ".git");
+  const defaultOutDir = existsSync(gitDir)
+    ? join(gitDir, "delegate-relay", `${basename(opts.cd) || "repo"}-${timestamp()}`)
+    : join(tmpdir(), "delegate-relay", `${basename(opts.cd) || "repo"}-${timestamp()}`);
+  const outDir = opts.outDir || defaultOutDir;
   mkdirSync(outDir, { recursive: true });
   const run = {
     startedAt,

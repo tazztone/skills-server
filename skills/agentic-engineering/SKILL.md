@@ -1,12 +1,8 @@
 ---
 name: agentic-engineering
 version: 1.2.0
-description: >-
-  Agentic engineering workflow: evidence-driven, production-grade, with risk
-  tiers, context architecture, verification gates, and completion contracts
-  for codebases of any scale. Use for product specifications, technical docs,
-  architecture, implementation, tests, CI/CD quality gates, agent evaluations,
-  memory files, code review, debugging, and remediation planning.
+description: Agentic engineering workflow: evidence-driven, production-grade quality gates and completion contracts.
+disable-model-invocation: true
 ---
 
 # Agentic Engineering

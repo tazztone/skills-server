@@ -42,11 +42,9 @@ Options:
 | `--dangerously-skip-permissions` | Pass Antigravity's permission-bypass flag. Never use this unless the human explicitly accepts it. |
 | `--print-timeout <duration>` | Timeout for print mode (default: `30m`). |
 | `--add-dir <dir>` | Add an extra workspace directory. Repeatable; relative paths resolve against `--cd`. Fresh runs always add the `--cd` repo (absolute path) as a workspace dir. Edits inside extra workspaces are not reported in `touchedFiles`. |
-| `--out-dir <dir>` | Where artifacts go (default: a fresh dir under the system temp dir). |
+| `--out-dir <dir>` | Where artifacts go (default: `<repo>/.git/delegate-relay/<dir>` inside the target repo so workspace stays clean and no outside-workspace access prompts trigger; falls back to system temp dir if not in a git repo). |
 
-Artifacts default to the system temp dir on purpose: the repo under review stays clean, so under the
-default clean-baseline mode the touched-files report shows only Antigravity's edits and nothing of the
-helper's own. With `--allow-dirty`, compare it with `baselineTouchedFiles`.
+Artifacts default to `<repo>/.git/delegate-relay/...` so that artifact reads/writes remain strictly inside the active workspace (avoiding outside-workspace permission prompts) while `.git/` guarantees `git status --porcelain` is not polluted by relay files. With `--allow-dirty`, compare `touchedFiles` with `baselineTouchedFiles`.
 
 ## The result
 
