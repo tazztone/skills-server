@@ -1,7 +1,7 @@
 ---
 name: agentic-engineering
 version: 1.2.0
-description: Agentic engineering workflow: evidence-driven, production-grade quality gates and completion contracts.
+description: "Agentic engineering workflow: evidence-driven, production-grade quality gates and completion contracts."
 disable-model-invocation: true
 ---
 
