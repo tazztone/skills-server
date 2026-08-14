@@ -1,103 +1,61 @@
 # Manage PRs — Reference
 
-Gotchas, command patterns, conflict resolution details, and reusable scripts.
+Gotchas, command patterns, conflict resolution mechanics, and reusable scripts.
 
 ---
 
 ## Gotchas & Landmines
 
+### `UNKNOWN` mergeability is a hard block
+GitHub computes mergeability asynchronously and temporarily returns `UNKNOWN`. Never merge `UNKNOWN`.
+Re-query until resolved:
+```bash
+gh pr view <n> --json mergeable
+```
+Retry up to 3 times with 2–3 seconds between queries. If still `UNKNOWN`, report to the user.
+
+### `gh pr merge` transient API race conditions
+When merging PRs sequentially or immediately after a force push, GitHub GraphQL API may return `GraphQL: Base branch was modified. Review and try the merge again` or `GraphQL: Pull Request has merge conflicts`.
+This is often a transient caching race. Wait 2–3 seconds and retry the command up to 3–5 times before failing.
+
 ### `gh pr checkout` panics on some environments
-Never use `gh pr checkout` — it segfaults. Always fetch manually:
+Never use `gh pr checkout` — it can segfault or panic across platforms. Always fetch and checkout manually:
 ```bash
 git fetch origin pull/<n>/head:pr-<n>
 git checkout pr-<n>
 ```
 
-### `gh` vs `git` boundary
-Use `gh` for GitHub API operations: `pr list`, `pr diff`, `pr view`, `pr merge`, `pr comment`, `pr close`.
-Use `git` for all local work: fetch, checkout, rebase, push. Never mix.
-
-### `UNKNOWN` mergeability is a hard block
-GitHub computes mergeability asynchronously and temporarily returns `UNKNOWN`. **Never merge `UNKNOWN`.**
-Re-query until it resolves:
-```bash
-gh pr view <n> --json mergeable
-```
-Retry up to 3 times with a few seconds between. If still `UNKNOWN`, report to the user.
-
-### `gh pr merge` fails with base branch modified or merge conflict errors
-When merging multiple PRs sequentially or right after a force push, the GitHub GraphQL API might return `GraphQL: Base branch was modified. Review and try the merge again` or `GraphQL: Pull Request has merge conflicts`.
-This is often a transient caching issue. Wait 2-3 seconds and retry the command up to 3-5 times before giving up.
-
-### `--json comments` crashes `gh pr view`
-Use `--json body,comments` — **not** the `--comments` flag. The flag crashes.
-
 ### `gh pr update-branch` does not exist
-The native command will fail. Use the raw API:
+The native CLI command does not exist. Use the raw GitHub API:
 ```bash
 gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=squash
 ```
-Fallback if squash fails:
+Fallback if squash is not supported on the target repo:
 ```bash
 gh api repos/{owner}/{repo}/pulls/{n}/update-branch -f merge_method=rebase
 ```
 
-### `gh pr create` body must use `--body-file`
-Never pipe PR body via stdin or inline `--body`. Write to a temp file:
-```bash
-BODY_FILE=$(mktemp "${TMPDIR:-/tmp}/pr-body.XXXXXX")
-cat > "$BODY_FILE" <<'__END__'
-<body content here>
-__END__
-gh pr create --title "<TITLE>" --body-file "$BODY_FILE"
-```
-
 ### `gh pr list` silently caps at 100
-Always pass `--limit 100`. If the count hits 100, warn the user — triage will be incomplete.
+Always specify `--limit 100`. If the returned list contains exactly 100 PRs, warn the user that additional PRs exist beyond the batch cap.
 
 ### `git rebase --continue` hangs on interactive editor prompts
-By default, `git rebase --continue` opens the default editor to let you modify commit messages. In headless/non-interactive agent environments, this will hang.
-Prefix the command with `GIT_EDITOR=true` (i.e. `GIT_EDITOR=true git rebase --continue`) to bypass the editor screen and reuse the existing commit message.
+In non-interactive agent environments, `git rebase --continue` will hang waiting for an editor.
+Always prefix with `GIT_EDITOR=true` to reuse the existing commit message:
+```bash
+GIT_EDITOR=true git rebase --continue
+```
 
-### Structural/cache-layer PRs are systemic blockers
-PRs altering service workers (`sw.js`), architectural caching, or app-layer config have cascading side effects.
-Group these, isolate the ideal structural layout first, and reject/close alternates — don't chain-merge blindly.
+### Delay between batch merges
+Insert a short delay (`sleep 2`) between consecutive `gh pr merge` calls in batch queues to avoid triggering base branch update race conditions on GitHub's API.
 
-### Never merge without reading the diff
-CI green is not sufficient. Always run `gh pr diff <n>` (single-PR) or read `pr-<n>.diff` (batch) and verify the logic.
-
-### Bot/AI PRs: verify imports and APIs
-For automated PRs (e.g. Jules, Dependabot), `grep` any unfamiliar identifiers in the codebase before approving.
-Do not trust the PR description alone.
-
-### Prefer commenting over closing
-When a PR needs work, comment with specific actionable feedback and leave it open — the author can iterate in place. Only close PRs that are truly abandoned, superseded, or duplicate. If you must close: `gh pr close <n> --comment "Closing because..."` — never silently.
-
-### Avoid sequential multi-query bloat
-Do not re-fetch `gh pr list` after every merge.
-Group non-overlapping merge-ready PRs into a batch queue, execute sequentially, and sync at the end. Insert a short delay (e.g. `sleep 2`) between consecutive `gh pr merge` calls to prevent transient base branch update errors.
-
----
-
-## Repo Verification Heuristic
-
-After all merges and resolutions are complete, detect and run the repo's verification commands once on final main:
-
-| Signal file | Command |
-|-------------|---------|
-| `package.json` | `npm test && npm run lint` |
-| `Makefile` | `make test` |
-| `pytest.ini` or `pyproject.toml` | `pytest` |
-| `build.gradle` or `gradlew` | `./gradlew testDebugUnitTest` |
-| CI config (`.github/workflows/`) | Check for the test job's `run:` step |
-
-Run the first matching command. If none match, check the CI config.
+### Bot / AI PR verification
+For automated PRs (e.g. Jules, Dependabot, Copilot), `grep` unfamiliar identifiers or newly imported packages in the codebase before approving. Do not trust the description alone.
 
 ---
 
 ## Diff Collection Loop
 
-Run from the repo root after `prs.json` exists:
+Run from the repository root after `prs.json` is generated:
 
 ```bash
 for n in $(jq -r '.[].number' prs.json); do
@@ -110,28 +68,44 @@ done
 
 ## Overlap Detection
 
-After collecting diffs and `prs.json`, detect file overlaps to sequence merges safely.
+Run this self-contained Python script to detect file-level collisions and subset PRs across the queue:
 
-If triaging within the skill-server workspace itself:
-```bash
-python3 scripts/pr-overlap.py prs.json
-```
-
-If triaging in another target repository, use the quick fallback one-liner (or resolve the absolute path to the skill's `scripts/pr-overlap.py`):
-
-### Quick fallback one-liner (Recommended for other repos)
 ```bash
 python3 -c "
-import json, collections
-data = json.load(open('prs.json'))
-by_file = collections.defaultdict(list)
+import json, collections, itertools, sys
+
+try:
+    data = json.load(open('prs.json'))
+except Exception as e:
+    sys.exit(f'Error reading prs.json: {e}')
+
+by_base = collections.defaultdict(list)
 for pr in data:
-    for f in pr.get('files', []):
-        if isinstance(f, dict) and 'path' in f:
-            by_file[f['path']].append(pr['number'])
-for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
-    if len(ns) > 1:
-        print(f'{p}: {ns}')
+    if 'number' in pr:
+        by_base[pr.get('baseRefName', 'main')].append(pr)
+
+for base, prs in by_base.items():
+    if len(prs) < 2:
+        continue
+    print(f'=== Target Branch: {base} ===')
+    pr_files = {pr['number']: {f['path'] for f in pr.get('files', []) if isinstance(f, dict) and 'path' in f} for pr in prs}
+    titles = {pr['number']: pr.get('title', '') for pr in prs}
+    found = False
+    for a, b in itertools.combinations(sorted(pr_files), 2):
+        shared = pr_files[a] & pr_files[b]
+        if not shared:
+            continue
+        found = True
+        print(f'#{a} <-> #{b} shared: ' + ', '.join(sorted(shared)))
+        if pr_files[a] and pr_files[b]:
+            if pr_files[b].issubset(pr_files[a]):
+                print(f'  * Duplicate Candidate: #{b} is a subset of #{a}')
+            elif pr_files[a].issubset(pr_files[b]):
+                print(f'  * Duplicate Candidate: #{a} is a subset of #{b}')
+        print(f'  #{a}: {titles[a][:72]}')
+        print(f'  #{b}: {titles[b][:72]}')
+    if not found:
+        print(f'No overlapping files on {base}.')
 "
 ```
 
@@ -139,59 +113,50 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 
 ## Local Conflict Resolution — Details
 
-When the diff investigation shows a PR's changes are worth preserving, resolve locally.
-
-### Investigating primary sources
-Never guess intent from raw conflict markers alone. Inspect both sides:
-- **PR intent**: Read `gh pr view <n> --json title,body` and the PR diff (`pr-<n>.diff` or `gh pr diff <n>`).
-- **Base intent**: Inspect the commits that touched the conflicting file on the base branch:
+### Primary Sources Investigation
+Inspect both sides before attempting resolution:
+- **PR author intent**: `gh pr view <n> --json title,body` and diff file `pr-<n>.diff`.
+- **Target base intent**: Inspect commit history of the conflicting file on the base branch:
   ```bash
   git log -n 5 --oneline origin/<base-branch> -- <conflicting-file>
   git show <commit-hash>
   ```
 
-### Hunk-by-hunk resolution rules
-- **Preserve both intents**: If changes are orthogonal (e.g. concurrent additions, independent imports, separate functions), keep both.
-- **Align with PR goal on collision**: If changes directly compete, choose the change that achieves the PR's stated goal while respecting base invariants. Note the trade-off in the merge/PR comment.
-- **Zero invented behaviour**: Do not refactor adjacent code, change unrelated formatting, or add unrequested features while resolving conflicts.
+### Hunk Resolution Rules
+- **Preserve orthogonal intents**: Keep independent additions, non-conflicting imports, and separate function declarations from both branches.
+- **Align with PR goal on direct collision**: When changes compete directly, pick the change that fulfills the PR's stated objective while maintaining base branch invariants. Document the trade-off.
+- **Zero invented behaviour**: Never refactor adjacent code, change unrelated formatting, or introduce unrequested logic during conflict resolution.
 
-### Standard rebase flow
+### Standard Rebase Execution
 
 ```bash
-# Fetch the PR branch (works for both origin and fork PRs)
+# 1. Fetch PR branch
 git fetch origin pull/<n>/head:pr-<n>
 git checkout pr-<n>
 
-# Start rebase onto target base
+# 2. Start rebase against base branch
 git rebase origin/<base-branch>
 
-# While conflicts exist across commits:
-# 1. Inspect conflict: git status, git diff
-# 2. Inspect primary sources for both sides
-# 3. Resolve each hunk preserving both intents (zero invented behaviour)
-# 4. Stage resolved files: git add <resolved-files>
-# 5. Continue rebase:
+# 3. For each conflicted commit:
+#    a. Inspect conflicts: git status, git diff
+#    b. Resolve hunks in editor (preserve both intents, zero invented behaviour)
+#    c. Stage resolved files: git add <resolved-files>
+#    d. Continue rebase:
 GIT_EDITOR=true git rebase --continue
-# (Repeat steps until rebase completes cleanly)
 
-# Run automated checks before pushing (see Repo Verification Heuristic)
-# e.g., npm test && npm run lint / pytest / make test
+# 4. Run automated checks before pushing (see Repo Verification Heuristic below)
 
-# Push the resolved branch back
-# Note: <head-ref-name> is the head branch name from prs.json
+# 5. Push resolved branch back
+# Note: <head-ref-name> is the branch name from prs.json
 git push --force-with-lease origin pr-<n>:<head-ref-name>
 
-# Clean up local branch
+# 6. Clean up local tracking branch
 git checkout <base-branch>
 git branch -D pr-<n>
 ```
 
-### Automation for large batches
-If triaging or merging a large batch of PRs (e.g., >5), write a temporary Python script in the scratch directory (e.g. `merge_helper.py`) to automate checkout, rebase, automatic resolution of trivial conflicts, running checks, force-pushing, merging, and cleaning up. This saves time and avoids copy-paste command errors. Use `GIT_EDITOR=true` in any automated git rebase commands.
-
-### Fork PR pushback
-
-When the PR is from a fork, you cannot push to `origin/<branch>`. Get the fork's push URL:
+### Fork PR Pushback
+When the PR originates from a fork, push directly to the fork's remote URL:
 
 ```bash
 PUSH_URL=$(gh pr view <n> --json headRepository \
@@ -201,10 +166,28 @@ git push --force-with-lease "$PUSH_URL" "pr-<n>:$BRANCH"
 git branch -D pr-<n>
 ```
 
-### When to abort local resolution
-- Conflict spans 5+ files with unrelated cross-cutting changes — comment with analysis, leave open for author.
-- PR's changes are superseded by a newer PR or direct commit — close with explanation.
-- Rebase produces a state where verification clearly fails (missing deps, removed APIs) — comment with what broke and why, leave open.
+### Abort Criteria for Local Resolution
+Leave the PR open and comment with specific guidance when:
+- Conflicts span 5+ files with major architectural collisions.
+- Rebase produces missing dependencies or removed core APIs requiring domain redesign.
+- PR changes are superseded by a newer merged PR or direct commit (in which case, close with explanation).
+
+### Batch Automation
+When handling large queues (>5 PRs), write a temporary scratch script (e.g. `scratch/merge_batch.py`) to automate sequential rebasing, running check commands, force-pushing, and merging. Always use `GIT_EDITOR=true`.
+
+---
+
+## Repo Verification Heuristic
+
+Run the first matching command once on final `main` after all merges are complete:
+
+| Signal file | Verification Command |
+|-------------|----------------------|
+| `package.json` | `npm test && npm run lint` |
+| `Makefile` | `make test` |
+| `pytest.ini` or `pyproject.toml` | `pytest` |
+| `build.gradle` or `gradlew` | `./gradlew testDebugUnitTest` |
+| CI config (`.github/workflows/`) | Check workflow step corresponding to tests |
 
 ---
 
@@ -214,16 +197,16 @@ Run at the end of every session (Phase 4):
 
 ```bash
 rm -f prs.json pr-*.diff
-git branch -l 'pr-*' | xargs -r git branch -D
+git branch -D $(git branch --list 'pr-*') 2>/dev/null || true
 ```
 
 ---
 
 ## Merge Plan Template
 
-Write this as an `implementation_plan.md` artifact. Request user feedback on the artifact.
+Write as an `implementation_plan.md` artifact awaiting user review before Phase 3 execution:
 
-```
+```markdown
 # PR Merge Plan — {repo} ({date})
 
 ### ✅ Merge-Ready
@@ -232,7 +215,7 @@ Write this as an `implementation_plan.md` artifact. Request user feedback on the
 
 ### 🔧 Conflicts — Resolvable
 | PR | Title | Conflict Summary | Resolution Plan |
-|----|-------|------------------|-----------------| 
+|----|-------|------------------|-----------------|
 
 ### 💬 Needs Author Action
 | PR | Title | Comment Left | Status |
