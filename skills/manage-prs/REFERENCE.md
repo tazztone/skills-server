@@ -141,6 +141,20 @@ for p, ns in sorted(by_file.items(), key=lambda x: -len(x[1])):
 
 When the diff investigation shows a PR's changes are worth preserving, resolve locally.
 
+### Investigating primary sources
+Never guess intent from raw conflict markers alone. Inspect both sides:
+- **PR intent**: Read `gh pr view <n> --json title,body` and the PR diff (`pr-<n>.diff` or `gh pr diff <n>`).
+- **Base intent**: Inspect the commits that touched the conflicting file on the base branch:
+  ```bash
+  git log -n 5 --oneline origin/<base-branch> -- <conflicting-file>
+  git show <commit-hash>
+  ```
+
+### Hunk-by-hunk resolution rules
+- **Preserve both intents**: If changes are orthogonal (e.g. concurrent additions, independent imports, separate functions), keep both.
+- **Align with PR goal on collision**: If changes directly compete, choose the change that achieves the PR's stated goal while respecting base invariants. Note the trade-off in the merge/PR comment.
+- **Zero invented behaviour**: Do not refactor adjacent code, change unrelated formatting, or add unrequested features while resolving conflicts.
+
 ### Standard rebase flow
 
 ```bash
@@ -148,13 +162,20 @@ When the diff investigation shows a PR's changes are worth preserving, resolve l
 git fetch origin pull/<n>/head:pr-<n>
 git checkout pr-<n>
 
-# Rebase onto target
+# Start rebase onto target base
 git rebase origin/<base-branch>
 
-# Resolve each conflict using your diff investigation context
-# — you know what the author intended, honour that intent
-git add <resolved-files>
+# While conflicts exist across commits:
+# 1. Inspect conflict: git status, git diff
+# 2. Inspect primary sources for both sides
+# 3. Resolve each hunk preserving both intents (zero invented behaviour)
+# 4. Stage resolved files: git add <resolved-files>
+# 5. Continue rebase:
 GIT_EDITOR=true git rebase --continue
+# (Repeat steps until rebase completes cleanly)
+
+# Run automated checks before pushing (see Repo Verification Heuristic)
+# e.g., npm test && npm run lint / pytest / make test
 
 # Push the resolved branch back
 # Note: <head-ref-name> is the head branch name from prs.json
@@ -166,7 +187,7 @@ git branch -D pr-<n>
 ```
 
 ### Automation for large batches
-If triaging or merging a large batch of PRs (e.g., >5), write a temporary Python script in the scratch directory (e.g. `merge_helper.py`) to automate checkout, rebase, automatic resolution of trivial conflicts, force-pushing, merging, and cleaning up. This saves time and avoids copy-paste command errors. Use `GIT_EDITOR=true` in any automated git rebase commands.
+If triaging or merging a large batch of PRs (e.g., >5), write a temporary Python script in the scratch directory (e.g. `merge_helper.py`) to automate checkout, rebase, automatic resolution of trivial conflicts, running checks, force-pushing, merging, and cleaning up. This saves time and avoids copy-paste command errors. Use `GIT_EDITOR=true` in any automated git rebase commands.
 
 ### Fork PR pushback
 

@@ -1,7 +1,7 @@
 ---
 name: manage-prs
 description: >
-  Triage, review, and merge GitHub PRs, including AI-generated PRs.
+  Triage, review, and merge GitHub PRs.
   Use for batch triage, single PR merge, PR queue cleanup, closing stale PRs,
   or when user mentions "manage PRs", "merge PR", "triage PRs", "PR backlog".
 disable-model-invocation: true
@@ -20,7 +20,7 @@ Stop and ask only on: auth errors (401/403), network timeouts, or irreversible c
 - **Diffs-only until the plan is written.** Read every diff before acting. CI green is not sufficient. During batch triage, never open source files — work from `pr-<n>.diff` only.
 - **Autonomous.** Decide from the diff; document why. Don't ask the user about content decisions or merge strategy.
 - **Comment, don't close.** Leave specific actionable feedback and keep the PR open. Only close PRs that are truly abandoned, superseded, or duplicate.
-- **Verify once at the end.** Never run tests mid-triage or on individual PR branches. After all merges and conflict resolutions are complete, run the repo's verification commands once on final main. See [REFERENCE.md](REFERENCE.md) for the detection heuristic.
+- **Verify cleanly.** Skip test runs for clean CI-green PRs during triage (verify once on final main). For locally resolved conflict branches, run automated checks before force-pushing to prevent pushing broken resolutions. See [REFERENCE.md](REFERENCE.md) for the detection heuristic.
 
 ## DO NOT
 
@@ -31,12 +31,13 @@ Stop and ask only on: auth errors (401/403), network timeouts, or irreversible c
 - Merge when mergeable is `UNKNOWN` — re-query up to 3× first
 - Use `gh pr checkout` — it segfaults on some environments; use `git fetch origin pull/<n>/head:pr-<n>` instead
 - Read source files during batch triage — diffs-only until the plan is written
-- Run tests on individual PR branches — verify once on final main
+- Run tests on clean CI-green PR branches — verify clean PRs once on final main
 - Leave workspace artifacts — delete `prs.json`, `pr-*.diff`, and temp branches at session end
 
 ## Gotchas
 
 Read [REFERENCE.md](REFERENCE.md) before your first command. It details workarounds for critical landmines:
+
 - **`UNKNOWN` mergeability**: re-query up to 3×
 - **`gh pr update-branch`**: raw API fallback
 - **`gh pr list`**: `--limit 100` cap
@@ -54,14 +55,15 @@ This is the authoritative description of the conflict resolution flow. Both sing
 
 When a PR shows `CONFLICTING`:
 
-1. **Investigate**: read `pr-<n>.diff` (batch) or `gh pr diff <n>` (single) — understand what the PR intended.
-2. **Decide**: if superseded or truly abandoned → close with comment. If fixable by the author → comment with specific rebase instructions. If valuable and resolvable → do it locally.
-3. **Resolve locally**: `git fetch origin pull/<n>/head:pr-<n>`, checkout, `git rebase origin/<base>`, resolve using diff context, push. For fork PRs, see [REFERENCE.md](REFERENCE.md) for pushback instructions.
-4. **Re-check**: verify mergeability after push, merge once clean.
+1. **Investigate primary sources**: read `pr-<n>.diff` (batch) or `gh pr diff <n>` (single) and PR body to understand author intent. Inspect git history of conflicting base files (`git log origin/<base> -- <file>`) to understand target intent.
+2. **Decide & resolve strategy**:
+   - If superseded or truly abandoned → close with comment.
+   - If spans 5+ files or requires complex author domain knowledge → comment with specific rebase guidance and abort criteria from [REFERENCE.md](REFERENCE.md).
+   - If valuable and resolvable → resolve hunk-by-hunk. Preserve both intents where possible. Where incompatible, pick the change matching the PR's stated goal and note the trade-off. Never invent new behaviour.
+3. **Execute rebase & automated checks**: fetch branch (`git fetch origin pull/<n>/head:pr-<n>`), checkout, `git rebase origin/<base>`. Resolve each hunk, stage, and continue with `GIT_EDITOR=true git rebase --continue` until all commits are rebased. Run the repo's automated checks before pushing.
+4. **Push & re-check**: push back (`--force-with-lease`), re-query mergeability until `MERGEABLE`, then merge. For fork PRs, see [REFERENCE.md](REFERENCE.md) for pushback instructions.
 
-Verification happens at the end (Phase 4), not here.
-
-Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, and fork PR pushback commands.
+Read [REFERENCE.md](REFERENCE.md) for primary source commands, the full rebase loop, hunk rules, abort criteria, and fork PR pushback commands.
 
 ---
 
@@ -79,10 +81,12 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 ### Phase 1 — Collect (diffs-only, no analysis)
 
 1. Fetch PR list:
+
    ```bash
    gh pr list --json number,title,author,isDraft,mergeable,reviewDecision,statusCheckRollup,baseRefName,headRefName,headRepositoryOwner,files,updatedAt \
      --limit 100 | tee prs.json
    ```
+
 2. Collect all diffs — read [REFERENCE.md](REFERENCE.md) for the diff collection loop.
 3. Detect overlaps — read [REFERENCE.md](REFERENCE.md) for the overlap detection command.
 
@@ -90,13 +94,14 @@ Read [REFERENCE.md](REFERENCE.md) for the full rebase script, abort criteria, an
 
 ### Phase 2 — Plan (produce merge plan)
 
-4. Read all `pr-<n>.diff` files and overlap output. Classify every PR using the categories below. For overlapping pairs, annotate with merge order (e.g. "merge #92 before #94"). Write the result as an `implementation_plan.md` artifact using the merge plan template from [REFERENCE.md](REFERENCE.md). Request user feedback on the artifact.
+1. Read all `pr-<n>.diff` files and overlap output. Classify every PR using the categories below. For overlapping pairs, annotate with merge order (e.g. "merge #92 before #94"). Write the result as an `implementation_plan.md` artifact using the merge plan template from [REFERENCE.md](REFERENCE.md). Request user feedback on the artifact.
 
 ✅ **Phase 2 done when:** every PR from `prs.json` appears exactly once in the plan, all overlapping pairs have an explicit merge order, and the plan is written as an artifact awaiting user approval.
 
 **Stop after writing the merge plan artifact. Do not proceed to Phase 3 until the user approves.**
 
 **Triage categories:**
+
 - ✅ **Merge-ready** — `MERGEABLE`, CI green
 - 🔧 **Conflicts — resolvable** — worth keeping, resolve locally
 - ⚠️ **Needs action** — blocked by CI or review
@@ -108,19 +113,18 @@ Overlapping PRs are annotated within their category (e.g. "✅ overlaps #94 — 
 
 ### Phase 3 — Execute (one category at a time, requires user approval)
 
-
-5. **✅ Merge-ready**: `gh pr merge <n> --squash --delete-branch` for each. Log: `"Merged: #X, #Y"`
-6. **🔧 Conflicts**: follow Conflict Resolution section for each. Log: `"Resolved: #X"`
-7. **💬 / ⚠️**: comment on each with actionable feedback. Log: `"Commented: #X, #Y"`
-8. **❌**: close with comment. Log: `"Closed: #X"`
+1. **✅ Merge-ready**: `gh pr merge <n> --squash --delete-branch` for each. Log: `"Merged: #X, #Y"`
+2. **🔧 Conflicts**: follow Conflict Resolution section for each. Log: `"Resolved: #X"`
+3. **💬 / ⚠️**: comment on each with actionable feedback. Log: `"Commented: #X, #Y"`
+4. **❌**: close with comment. Log: `"Closed: #X"`
 
 ✅ **Phase 3 done when:** every PR in the table has a logged outcome.
 
 ### Phase 4 — Verify & Cleanup
 
-9. Run repo verification commands once on final main. See [REFERENCE.md](REFERENCE.md) for heuristic.
-10. **If verification fails**: check if the failure is pre-existing (exists on main before your merges) or caused by your changes. Pre-existing → note it and proceed. Caused by your changes → investigate which merge introduced it, revert if needed, and report.
-11. Clean up: read [REFERENCE.md](REFERENCE.md) for the cleanup commands.
+1. Run repo verification commands once on final main. See [REFERENCE.md](REFERENCE.md) for heuristic.
+2. **If verification fails**: check if the failure is pre-existing (exists on main before your merges) or caused by your changes. Pre-existing → note it and proceed. Caused by your changes → investigate which merge introduced it, revert if needed, and report.
+3. Clean up: read [REFERENCE.md](REFERENCE.md) for the cleanup commands.
 
 ✅ **Phase 4 done when:** verification passes (or pre-existing failures documented) and no workspace artifacts remain (`prs.json`, `pr-*.diff`, temp branches all deleted).
 
