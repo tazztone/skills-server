@@ -66,8 +66,8 @@ Scale design investment to the risk level:
 
 Execute the design in small, verifiable slices:
 1. **Vertical slices:** Build the smallest functional increment that proves the core behavior first.
-2. **Co-located tests:** Write or update unit and integration tests alongside implementation increments rather than in a deferred cleanup pass.
-3. **Defensive boundaries:** Validate inputs at trust boundaries, preserve backward compatibility by default, and provide actionable error states.
+2. **Defend against the 80% gap:** Direct attention to the subtle 20%—boundary validation, error handling, retries, and contract invariants where generated code commonly fails.
+3. **Co-located tests:** Write or update unit and integration tests alongside implementation increments rather than in a deferred cleanup pass.
 4. **Clean diffs:** Inspect changes regularly for unintended scope creep, dead code, or modified public contracts. Keep modifications strictly contained to what the acceptance criteria require.
 
 > **Completion criterion:** Each increment builds cleanly and passes its local unit/type checks with no unrelated files modified.
@@ -84,14 +84,17 @@ Collect observable evidence across multiple quality gates:
 | **Boundary Invariants** | Edge cases, schema checks, contract tests, negative input handling | Medium / High risk |
 | **Security & Safety** | Secret scans, dependency vulnerability checks, permission bounds | High / Critical risk |
 
-Claim checks passed only when the execution command and output are directly observed in session. Report any skipped checks alongside their residual risk. If checks fail, follow [`references/self-diagnosis.md`](references/self-diagnosis.md).
+Claim checks passed only when the execution command and output are directly observed in session. Report any skipped checks alongside their residual risk.
+
+If any check fails, do not blindly retry code modifications. Follow the 7-step loop in [`references/self-diagnosis.md`](references/self-diagnosis.md) (isolate boundary → test competing hypotheses → fix root cause).
 
 > **Completion criterion:** Deterministic checks executed with all observed results passing, or skipped checks documented with rationale and residual risk.
 
 ### 6. Review & Completion Contract
 
 Conduct a final review against acceptance criteria before presenting work:
-- Review changes using the Structured Self-Review Template in [`references/templates.md`](references/templates.md). For High or Critical tasks, perform a falsification pass targeting boundary breakages and failure modes.
+- Review changes using the Structured Self-Review Template in [`references/templates.md`](references/templates.md).
+- **Falsification pass:** Actively attempt to break the solution with boundary inputs, missing dependencies, or invalid states before presenting. Mandatory for High and Critical tasks.
 - Provide the final **Completion Contract**:
   1. **What changed:** Concise summary of changes.
   2. **Design rationale:** Why this approach was selected over alternatives.
