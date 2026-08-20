@@ -15,6 +15,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
 | [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches | `npx skills add tazztone/skills-server/skills --skill manage-prs` |
 | [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal | `npx skills add tazztone/skills-server/skills --skill signal-stickers` |
+| [`userscript-development`](./skills/userscript-development/SKILL.md) | End-to-end userscript engineering for Tampermonkey, Violentmonkey, and ScriptCat (Shadow DOM UI, storage migration, ScriptCat workers) | `npx skills add tazztone/skills-server/skills --skill userscript-development` |
 
 ## Detailed Skill Overviews
 
@@ -103,6 +104,20 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Best Practices**: Safe zones/margins, transparency, and stroke outlines for seamless rendering in both light and dark modes.
   - **Publishing**: Assigning emojis to stickers for in-chat auto-suggestions, and uploading packs via Signal Desktop.
 
+### 📜 [userscript-development](./skills/userscript-development/SKILL.md)
+* **Purpose**: End-to-end engineering handbook for developing, testing, and distributing userscripts across Violentmonkey, Tampermonkey, and ScriptCat.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill userscript-development
+  ```
+* **Key Features**:
+  - **Dual-Layer Style Architecture & Shadow DOM**: Injected UI encapsulated inside open Shadow Roots with Top Layer (`<dialog popover="auto">`) rendering, while site modifications stay in `document.head`.
+  - **Non-Destructive DOM & Synthetic Events**: Using `TreeWalker` (`NodeFilter.SHOW_TEXT`) to protect framework virtual DOM fibers and full `PointerEvent`/`MouseEvent` dispatch chains.
+  - **INP Protection & Monotonic Batching**: Yielding to the main thread via `scheduler.yield()` / `requestAnimationFrame` with `runId` cancellation guards.
+  - **Dual-Layer Storage & Migration**: Coordinated GM storage and `localStorage` persistence with precedence handling and graceful cross-script sandboxing fallbacks.
+  - **ScriptCat Extensions**: Declarative YAML `==UserConfig==`, headless `@background` workers, `@crontab` async scheduling, and `==UserSubscribe==` bundles.
+  - **Playwright Test Harness**: Testing via direct script injection on local mock pages with shadow-piercing locators and attached-state assertions.
+
 
 ## Structure
 
@@ -162,6 +177,7 @@ npx skills add tazztone/skills-server/skills --all
 npx skills add tazztone/skills-server/skills --skill agy-delegate
 npx skills add tazztone/skills-server/skills --skill create-agentsmd
 npx skills add tazztone/skills-server/skills --skill manage-prs
+npx skills add tazztone/skills-server/skills --skill userscript-development
 
 # Install globally (user-level) instead of project-level
 npx skills add tazztone/skills-server/skills -g
