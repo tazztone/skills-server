@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Learn
 
-Start from roadblocks, keep only what recurs, then propose one diff per takeaway.
+Start from roadblocks, keep only what recurs, then bundle every retained takeaway into one review.
 
 ## Audit friction
 
@@ -19,14 +19,16 @@ Start from roadblocks, keep only what recurs, then propose one diff per takeaway
 
 - Discard the ephemeral: one-off network blips, typos, external outages, throwaway experiments.
 - Retain the systemic: undocumented conventions, silent failure modes, non-obvious constraints, repeated preferences.
+- If every friction point is ephemeral, output a two-sentence summary of why nothing persists and terminate.
 - Completion criterion: every friction point labeled discard or retain; each retained takeaway names its root cause and whether it is universal or one-domain.
 
 ## Route to the least intrusive destination
 
+- Discover the workspace's rule/skill locations first; parenthetical paths are this repo's layout, not every workspace's.
 - Project note (owning repo's README, docs, or runbook): repo-specific gotchas, environment quirks, build prerequisites.
-- Guardrail (Rule in `skills/RULES.md`): universal constraint or formatting invariant.
-- Playbook (Skill in `skills/<slug>/SKILL.md`): multi-step tool chain, flag combination, or cheatsheet.
-- Completion criterion: one destination plus its target file per retained takeaway.
+- Guardrail (workspace rules; here `skills/RULES.md`): universal constraint or formatting invariant.
+- Playbook (workspace skills; here `skills/<slug>/SKILL.md`): multi-step tool chain, flag combination, or cheatsheet.
+- Completion criterion: one destination plus its target file per retained takeaway, resolved against the workspace's actual layout.
 
 ## Update first
 
@@ -38,6 +40,6 @@ Start from roadblocks, keep only what recurs, then propose one diff per takeaway
 
 Propose before editing; edit only after explicit user approval.
 
-1. Match the target file and one sibling under `skills/` for frontmatter, headings, and directory conventions; do not restate schema from memory.
-2. Present the friction summary, classification, rationale, and exact diff, then wait.
-- Completion criterion: the user approves or rejects the exact diff; make no file edits before approval.
+1. Match the target file and one sibling in the workspace's skills layout for frontmatter, headings, and directory conventions; do not restate schema from memory.
+2. Present one inline review in chat: friction summary plus grouped diff blocks per takeaway, then wait.
+- Completion criterion: the user approves or rejects the whole review at once; make no file edits before approval.
