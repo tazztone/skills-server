@@ -1,27 +1,43 @@
 ---
 name: learn
-description: Persist reusable behaviors from recent interactions, corrections, or successes as updated or new skills or rules.
+description: Audit session friction and save systemic takeaways as project notes, rules, or skills.
+disable-model-invocation: true
 ---
 
-The user invoked /learn to persist reusable behaviors from recent interactions, corrections, or successes. Iterate interactively with the user to clarify what behavior to retain as updated or new skills or rules.
+# Learn
 
-## Identify What to Learn
-1. **Analyze User Messages**: Prioritize analyzing recent user messages for explicit corrections, constraints, overrides, or pointers (e.g., "no", "instead", "that failed").
-2. **Identify the Fix**: Compare failed attempts with the successful resolution to isolate the pivotal change.
-3. **Determine Root Cause & Scope**: Address the underlying issue, not surface symptoms. Determine if it's universal or domain-specific.
-4. **Verify if learning is needed**: If the interaction did not reveal any new reusable behaviors or constraints, explain this to the user and exit without proposing changes.
+Start from roadblocks, keep only what recurs, then propose one diff per takeaway.
 
-## Classify Rules vs. Skills
-1. **Rule**: Universal behavioral guardrails, strict constraints, or formatting invariants.
-2. **Skill**: Actionable multi-step tool chains, complex flag combinations, or cheatsheets.
+## Audit friction
 
-## Create vs. Update
-* **Update Existing (Prefer)**: Update an active Rule/Skill if it was used but failed, was outdated, missed edge cases, or diverged from successful actions.
-* **Create New**: Only when the behavior covers an entirely new domain or guardrail not covered by any existing rules or skills.
+1. List tool and command failures: non-zero exits, wrong flags, missing dependencies, path errors.
+2. List agent misunderstandings: hallucinated locations, wrong assumptions, repeated loops.
+3. List user interventions: corrections, constraints, overrides ("no", "instead", "that failed").
+4. Completion criterion: a friction list with the pivotal change quoted per item, or stop and say why nothing is reusable.
 
-## Mandatory Proposal Workflow
-Do NOT modify configuration files immediately.
-1. Check the `create-agentsmd` or `writing-for-agents` skill in the skills section or inspect existing workspace rules/skills to follow their exact schema, frontmatter, and directory conventions.
-2. Create/update a learning_proposal.md artifact outlining your classification, rationale, and precise text additions/diffs.
-3. Set request_feedback = true in ArtifactMetadata for user review.
-4. Only execute file/tool modifications after explicit user approval.
+## Triage signal vs. noise
+
+- Discard the ephemeral: one-off network blips, typos, external outages, throwaway experiments.
+- Retain the systemic: undocumented conventions, silent failure modes, non-obvious constraints, repeated preferences.
+- Completion criterion: every friction point labeled discard or retain; each retained takeaway names its root cause and whether it is universal or one-domain.
+
+## Route to the least intrusive destination
+
+- Project note (owning repo's README, docs, or runbook): repo-specific gotchas, environment quirks, build prerequisites.
+- Guardrail (Rule in `skills/RULES.md`): universal constraint or formatting invariant.
+- Playbook (Skill in `skills/<slug>/SKILL.md`): multi-step tool chain, flag combination, or cheatsheet.
+- Completion criterion: one destination plus its target file per retained takeaway.
+
+## Update first
+
+- Update the existing note, guardrail, or playbook when it was used but failed, is outdated, missed the case, or diverges from what worked.
+- Create new only when no existing file covers the case.
+- Completion criterion: one target file plus one sentence of rationale per takeaway.
+
+## Propose before editing
+
+Propose before editing; edit only after explicit user approval.
+
+1. Match the target file and one sibling under `skills/` for frontmatter, headings, and directory conventions; do not restate schema from memory.
+2. Present the friction summary, classification, rationale, and exact diff, then wait.
+- Completion criterion: the user approves or rejects the exact diff; make no file edits before approval.
