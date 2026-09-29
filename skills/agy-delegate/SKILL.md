@@ -1,16 +1,11 @@
 ---
 name: agy-delegate
-description: >-
-  Delegate a coding task to the Google Antigravity CLI (`agy`) as a background implementer, then review
-  its diff and land it yourself. Use this whenever the user wants to hand implementation work to
-  Antigravity or agy - phrasings like "have Antigravity do X", "delegate this to agy", "run it through
-  agy", or "use Antigravity to implement/fix/refactor" - or wants to run a queue of coding tasks
-  through agy while staying the reviewer. DO NOT USE for tasks small enough to do inline, or when the
-  user wants the code written directly without delegating.
+description: Delegate a coding task to the Google Antigravity CLI (`agy`) as a background implementer, then review and land it.
+disable-model-invocation: true
 license: MIT
 compatibility: Requires the `agy` CLI installed and authenticated, Node 18+, and git. The orchestrating agent must be able to run shell commands and read files. Shell examples assume bash/zsh (macOS/Linux, or Git Bash/WSL on Windows). Windows launch is not yet verified for this relay.
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Antigravity Delegate
@@ -19,10 +14,6 @@ You are the **orchestrator**. This skill lets you hand a bounded coding task to 
 **implementer** - the Google Antigravity CLI (`agy`) - then review what it produced and land it
 yourself. You write the brief and own the judgment; Antigravity does the typing in its own
 conversation; you verify and commit.
-
-Nothing here is specific to one orchestrating agent. The loop needs only the ability to run a shell
-command and read a file, so any comparable agent can drive it. It is designed for and run on Claude
-Code; treat other orchestrators as designed-for, not yet proven.
 
 ## When NOT to use this
 
@@ -60,6 +51,8 @@ Antigravity it will **not** commit (you will). Include preflight or connection t
 that depend on external services (e.g., PostgreSQL fixtures) so tests do not hang. Keep one task per brief. Full guidance and a template:
 [references/writing-the-brief.md](references/writing-the-brief.md).
 
+- **Completion criterion:** A self-contained brief file exists specifying goal, bounds, exact local gate commands, and the report contract.
+
 ### 2. Dispatch
 
 Send the brief to Antigravity with the bundled helper. It wraps `agy --print`, captures the run, and
@@ -84,14 +77,15 @@ Resuming against existing uncommitted agent work requires `--allow-dirty`.
 permission allow-rule; it is not a substitute for permission configuration.
 Mechanics, flags, and the `result.json` shape: [references/dispatch-and-poll.md](references/dispatch-and-poll.md).
 
+- **Completion criterion:** Relay command executed targeting the correct workspace directory with appropriate permissions and flags.
+
 ### 3. Wait for completion
 
 The helper blocks until Antigravity finishes, so back it with whatever your orchestrator offers and
 resume when it returns:
 
-- **Claude Code:** run the Bash call with `run_in_background: true`; you are notified on completion.
-- **Plain shell / other agents:** run it in the foreground for short tasks, or background it and poll
-  the result file.
+- **Background execution:** run as an async command or background task if supported by your runtime; you are notified on completion.
+- **Synchronous / polling:** run in foreground for short tasks, or background it and poll the result file.
 
 Do not trust progress trackers over reality: a run is finished when `result.json` is written and the
 process has exited. Read the working tree, not a status line. A `completed` result requires a non-empty
@@ -99,7 +93,9 @@ implementer report. Treat `completed_without_report` and `blocked_by_permission`
 even when the process exit code is zero. The report, when present, is in `finalMessage` and is also
 printed in full on stdout between the report markers.
 
-### 4. Review - do not trust the self-report
+- **Completion criterion:** `result.json` is written, the process has exited, and status is `completed` with a non-empty report.
+
+### 4. Review and independently verify
 
 Antigravity's `result.json` includes its own final message and any gate claims. **Re-verify, don't
 accept:**
@@ -118,6 +114,8 @@ accept:**
 
 Full checklist: [references/review-and-land.md](references/review-and-land.md).
 
+- **Completion criterion:** All gate commands pass locally, diff matches the brief without scope creep or dangling tokens, and touched files match the baseline.
+
 ### 5. Land it
 
 The implementer edits the working tree; **the orchestrator commits.** Only after the gates pass and the
@@ -126,6 +124,9 @@ diff holds:
 - Commit the verified work yourself, with a clear message.
 - If it needs changes, send a delta brief with `--conversation <id>` from the result when available;
   use `--resume-last` only when that most-recent-session behavior is intentional. Review again.
+- When running multiple sequential tasks, consult [references/multi-task-queues.md](references/multi-task-queues.md).
+
+- **Completion criterion:** Work is committed to git with a descriptive message, or a delta brief is dispatched for rework.
 
 ## Permission model
 
@@ -144,14 +145,3 @@ absorb** (report Antigravity's design decisions, defensible-but-unasked turns, a
 nitpicks rather than silently keeping them) and **stop for scope changes** (if correct completion needs
 going beyond the brief, ask - don't expand the mandate yourself). The full treatment is in
 [references/review-and-land.md](references/review-and-land.md).
-
-## References
-
-- [references/writing-the-brief.md](references/writing-the-brief.md) - how to write a brief Antigravity
-  can execute blind: structure, XML blocks, the report contract, and real gate commands.
-- [references/dispatch-and-poll.md](references/dispatch-and-poll.md) - `relay.mjs` flags, the
-  `result.json` contract, backgrounding per orchestrator, and recovery when a run misbehaves.
-- [references/review-and-land.md](references/review-and-land.md) - the review checklist, the commit
-  boundary, and the rework cycle via `--resume-last`.
-- [references/multi-task-queues.md](references/multi-task-queues.md) - running a sequential queue:
-  carrying constraints forward, progress tracking, and the end-of-run coherence check.
