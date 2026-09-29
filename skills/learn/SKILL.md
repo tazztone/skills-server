@@ -10,7 +10,7 @@ Start from roadblocks, keep only what recurs, then bundle every retained takeawa
 
 ## Audit friction
 
-1. List tool and command failures: non-zero exits, wrong flags, missing dependencies, path errors.
+1. List tool and command failures: non-zero exits, wrong flags, missing dependencies, path errors, unnecessary repeated excessive tool calls, etc.
 2. List agent misunderstandings: hallucinated locations, wrong assumptions, repeated loops.
 3. List user interventions: corrections, constraints, overrides ("no", "instead", "that failed").
 4. Completion criterion: a friction list with the pivotal change quoted per item, or stop and say why nothing is reusable.
@@ -24,11 +24,7 @@ Start from roadblocks, keep only what recurs, then bundle every retained takeawa
 
 ## Route to the least intrusive destination
 
-- Discover the workspace's rule/skill locations first; parenthetical paths are this repo's layout, not every workspace's.
-- Project note (owning repo's README, docs, or runbook): repo-specific gotchas, environment quirks, build prerequisites.
-- Guardrail (workspace rules; here `skills/RULES.md`): universal constraint or formatting invariant.
-- Playbook (workspace skills; here `skills/<slug>/SKILL.md`): multi-step tool chain, flag combination, or cheatsheet.
-- Completion criterion: one destination plus its target file per retained takeaway, resolved against the workspace's actual layout.
+Resolve the workspace's actual note/rule/skill locations first, then route each retained takeaway to the least intrusive home it fits — project note for repo gotchas, guardrail (usually root AGENTS.md) for universal constraints, playbook for procedures — one target file per takeaway.
 
 ## Update first
 
