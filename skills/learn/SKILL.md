@@ -1,6 +1,6 @@
 ---
 name: learn
-description: Audit session friction and save systemic takeaways as project notes, rules, or skills.
+description: Audit session friction and save systemic takeaways as project notes, rules, etc
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,7 @@ Start from roadblocks, keep only what recurs, then bundle every retained takeawa
 
 ## Route to the least intrusive destination
 
-Resolve the workspace's actual note/rule/skill locations first, then route each retained takeaway to the least intrusive home it fits — project note for repo gotchas, guardrail (usually root AGENTS.md) for universal constraints, playbook for procedures — one target file per takeaway.
+Resolve the workspace's actual docs/specs/note/rule/ locations first, then route each retained takeaway to the least intrusive home it fits — repo docs (dynamic context) for repo gotchas, guardrail (usually root AGENTS.md) for universal constraints (see `create-agentsmd` skill)
 
 ## Update first
 
