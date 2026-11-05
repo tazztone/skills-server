@@ -14,6 +14,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
 | [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches | `npx skills add tazztone/skills-server/skills --skill manage-prs` |
+| [`retrospective`](./skills/retrospective/SKILL.md) | Summarize session roadblocks and improvements, then dispatch an isolated subagent to ground, draft, and critique a follow-up plan | `npx skills add tazztone/skills-server/skills --skill retrospective` |
 | [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal | `npx skills add tazztone/skills-server/skills --skill signal-stickers` |
 | [`userscript-development`](./skills/userscript-development/SKILL.md) | End-to-end userscript engineering for Tampermonkey, Violentmonkey, and ScriptCat (Shadow DOM UI, storage migration, ScriptCat workers) | `npx skills add tazztone/skills-server/skills --skill userscript-development` |
 
@@ -92,6 +93,17 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Conflict Resolution**: Safely handles git conflicts locally and checks for overlapping changes between pull requests.
   - **Safe Execution**: Uses explicit command guidelines to avoid shell bugs (e.g. avoiding segfaulting commands like `gh pr checkout`).
   - **Interactive Gate**: Ensures human approval via an `implementation_plan.md` artifact before any branch modifications or merges are made.
+
+### 🔍 [retrospective](./skills/retrospective/SKILL.md)
+* **Purpose**: Automates post-session retrospective extraction, context-isolated follow-up planning via a 0-token subagent, and self-critique refinement.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill retrospective
+  ```
+* **Key Features**:
+  - **Full-Memory Extraction**: Summarizes roadblocks, friction, and candidate improvements in the main thread while session context is intact.
+  - **0-Token Subagent Compaction**: Hands off findings via `scratch/retrospective.md` to an isolated subagent (`TypeName="self"`), avoiding session token pollution without manual `/compact`.
+  - **Two-Pass Grounding & Critique**: Subagent grounds claims against codebase/tests/docs to write `followup_plan.md`, then runs a second pass to critique edge cases, fallbacks, and invariants before returning for approval.
 
 ### 🎨 [signal-stickers](./skills/signal-stickers/SKILL.md)
 * **Purpose**: Design, formatting, and publishing handbook for creating and uploading custom static and animated sticker packs to Signal.
