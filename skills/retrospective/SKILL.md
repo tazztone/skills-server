@@ -16,51 +16,52 @@ Answer this exact prompt using current session memory:
 > summarize roadblocks/friction encountered during this session."
 
 1. Output the response directly to the user (`### Roadblocks & Friction Encountered` and `### Room for Improvement & Recommended Next Tasks`).
-2. Save the response to `<appDataDir>/brain/<conversation-id>/scratch/retrospective.md`.
+2. Write the response to `<parent-artifact-dir>/scratch/retrospective.md` using `write_file` (`Path` and `Content` only, omitting `ArtifactMetadata`), where `<parent-artifact-dir>` is the resolved absolute path to `<appDataDir>/brain/<conversation-id>`.
 
-- **Completion criterion:** Every session roadblock and candidate improvement is printed to the user and written to `<appDataDir>/brain/<conversation-id>/scratch/retrospective.md`.
+- **Completion criterion:** Every session roadblock and candidate improvement is printed to the user and written to `<parent-artifact-dir>/scratch/retrospective.md`.
 
 ## 2. Ground, Plan, and Critique (Isolated Subagent)
 
-Dispatch a fresh-context subagent (`TypeName="self"`, `Role="Grounded Planner"`) so planning runs with a 0-token baseline instead of session history. Wait for the subagent notification before proceeding.
+Dispatch a fresh-context subagent (`TypeName="self"`, `Role="Grounded Planner"`) with `<parent-artifact-dir>` interpolated as a literal absolute path so planning runs with a 0-token baseline. Wait for the subagent notification before proceeding.
 
 ```python
 invoke_subagent(
     Role="Grounded Planner",
     TypeName="self",
     Prompt="""
-Read `<appDataDir>/brain/<conversation-id>/scratch/retrospective.md`.
+Read `<parent-artifact-dir>/scratch/retrospective.md`.
+Confine all file operations to `<parent-artifact-dir>/scratch/followup_plan.md` (`Path` and `Content`/`Target`/`Replacement` only); leave repository files untouched.
 
-## Pass 1: Ground and Draft Plan
+## Pass 1: Triage, Ground, and Draft Plan
 Answer and execute:
-> "verify/ground the previous findings:
-> <contents of retrospective.md>
+> "verify/ground the previous findings in `<parent-artifact-dir>/scratch/retrospective.md`.
 > how to best adress them? write a plan."
 
-1. Inspect `git status`, `git diff`, source files, docs, and tests to verify every finding against actual workspace state.
-2. Create an implementation plan artifact (`<appDataDir>/brain/<conversation-id>/followup_plan.md`) with `ArtifactMetadata` (`UserFacing: true`, `RequestFeedback: true`).
-3. Do not edit repository files.
+1. Inspect `git status`, `git diff`, source files, docs, and tests to audit every finding against actual workspace state.
+2. Triage each finding as **grounded** (backed by exact `file:line` or command output) or **discarded** (false positive, already resolved, or out-of-scope noise).
+3. Draft a phased implementation plan (`1 phase = 1 commit`, including doc/spec updates and verification commands per phase) for grounded findings only, and write it to `<parent-artifact-dir>/scratch/followup_plan.md` using `write_file`.
 
-- **Completion criterion:** Every claim in `retrospective.md` is verified against the codebase and captured in `followup_plan.md`.
+- **Completion criterion:** Every finding in `retrospective.md` is classified as grounded or discarded, and grounded tasks are written to `<parent-artifact-dir>/scratch/followup_plan.md`.
 
 ## Pass 2: Critique and Refine Plan
 Answer and execute:
 > "verify/ground, critique and refine the plan
 > what would u change or improve still? are you happy with the plan? update it as you see fit."
 
-1. Challenge protocol fallbacks, failure modes, edge cases, state invariants, and test coverage against project docs and code.
-2. Edit `followup_plan.md` in place with the refinements.
-3. Return the artifact path, grounded decisions, and critique refinements made in Pass 2.
+1. Challenge protocol fallbacks, failure modes, edge cases, state invariants, and test coverage in `<parent-artifact-dir>/scratch/followup_plan.md` against project docs and code.
+2. Apply refinements in place on `<parent-artifact-dir>/scratch/followup_plan.md` using `edit_file`.
+3. Return the triage summary (grounded vs. discarded items) and Pass 2 critique refinements to the parent agent.
 
-- **Completion criterion:** `followup_plan.md` is updated with every edge-case refinement and returned to the parent agent.
+- **Completion criterion:** `<parent-artifact-dir>/scratch/followup_plan.md` is refined in place via `edit_file` and the triage + critique summary is returned to the parent agent.
 """
 )
 ```
 
-- **Completion criterion:** Subagent completes both passes and returns the refined `followup_plan.md` artifact path and summary.
+- **Completion criterion:** Subagent completes both passes, updates `<parent-artifact-dir>/scratch/followup_plan.md`, and returns the triage and critique summary.
 
-## 3. Handoff
+## 3. Promote Artifact and Handoff (Main Thread)
 
-Present the finalized plan artifact link, grounded highlights, and critique refinements to the user. Wait for explicit confirmation before executing Phase 1.
+1. Read `<parent-artifact-dir>/scratch/followup_plan.md` and promote it to `<parent-artifact-dir>/followup_plan.md` via `write_file` with `ArtifactMetadata` (`UserFacing: true`, `RequestFeedback: true`, `Summary: "<concise summary of grounded follow-up phases>"`).
+2. Present the [`followup_plan.md`](file://<parent-artifact-dir>/followup_plan.md) link, grounded vs. discarded triage highlights, and Pass 2 refinements to the user. Wait for explicit approval before executing Phase 1.
 
-- **Completion criterion:** Finalized plan artifact and summary presented to the user with no repository files modified.
+- **Completion criterion:** `<parent-artifact-dir>/followup_plan.md` is created in the main thread with `RequestFeedback: true` and presented to the user with no repository files modified.

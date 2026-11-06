@@ -103,7 +103,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 * **Key Features**:
   - **Full-Memory Extraction**: Summarizes roadblocks, friction, and candidate improvements in the main thread while session context is intact.
   - **0-Token Subagent Compaction**: Hands off findings via `scratch/retrospective.md` to an isolated subagent (`TypeName="self"`), avoiding session token pollution without manual `/compact`.
-  - **Two-Pass Grounding & Critique**: Subagent grounds claims against codebase/tests/docs to write `followup_plan.md`, then runs a second pass to critique edge cases, fallbacks, and invariants before returning for approval.
+  - **Two-Pass Grounding & Critique**: Subagent triages findings against codebase/tests/docs (discarding false positives) to draft and self-critique `scratch/followup_plan.md`, which the main thread promotes to an interactive `followup_plan.md` artifact for approval.
 
 ### 🎨 [signal-stickers](./skills/signal-stickers/SKILL.md)
 * **Purpose**: Design, formatting, and publishing handbook for creating and uploading custom static and animated sticker packs to Signal.
