@@ -58,6 +58,10 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Deadlock-Safe Board Protocol**: Enforces `post_message{text:...}` -> confirm `seq` -> `swarm_wait` on separate steps.
   - **Keep-Alive Verification Loop**: Keeps `@executor` parked at zero token cost until `BypassSandbox` gates pass, bouncing non-trivial fixes back to `LOW`.
   - **Worker Guardrails & Recovery**: Prevents multi-`edit_file` collisions, keeps workers out of `BypassSandbox`, and handles server restarts (`@executor resume`) and worker quota exhaustion.
+  - **Optional Always-On Rule**: To auto-delegate on every `/plan` approval, add to global/project `AGENTS.md`:
+    ```markdown
+    When the user approves a plan (`/plan` approval or `Proceed`), delegate via `agy-executor` (`gemini-4-hydrogen-low`) instead of editing inline unless asked.
+    ```
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
