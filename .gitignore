@@ -1,5 +1,6 @@
-skills/agentic-engineering/source-paper.txt
-skills/agentic-engineering/The New SDLC_v3.pdf
+*.txt
+*.pdf
+*.webp
 
 # Sandbox-injected HOME-style masks (/dev/null bind-mounts in workspace root).
 # Never track: .gitconfig may carry credential helpers.
@@ -11,3 +12,4 @@ skills/agentic-engineering/The New SDLC_v3.pdf
 .ripgreprc
 .zprofile
 .zshrc
+
