@@ -10,6 +10,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 |------|-------------|-----------------|
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
 | [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
+| [`agy-executor`](./skills/agy-executor/SKILL.md) | Delegate execution of an approved `/plan` to a `gemini-4-hydrogen-low` swarm worker, then verify and commit on the parent model | `npx skills add tazztone/skills-server/skills --skill agy-executor` |
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
@@ -45,6 +46,18 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Worktree Baseline Protection**: Refuses execution in dirty worktrees by default (overrideable via `--allow-dirty`) and records `baselineTouchedFiles` to cleanly isolate changes.
   - **Permission & Preflight Diagnostics**: Detects permission denial messages and sandboxing requirements without misrepresenting blocked runs as successful.
   - **Explicit Session Retries**: Prefers `--conversation <id>` retry targeting over `--resume-last` session guessing.
+
+### ⚙️ [agy-executor](./skills/agy-executor/SKILL.md)
+* **Purpose**: Separate planning (`HIGH`) from execution (`Gemini 4 Hydrogen (Low)`) inside Antigravity (`agy`): when a plan is approved, delegate implementation to a `gemini-4-hydrogen-low` swarm worker, keep it alive through full verification, bounce fixes back to `LOW`, and review/commit on `HIGH`.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill agy-executor
+  ```
+* **Key Features**:
+  - **Exact Model Pinning via `swarm`**: Uses `swarm{action:"add", model:"gemini-4-hydrogen-low"}` (bypassing `agents/*.md` / `invoke_subagent`'s `modelTier`-only limitation).
+  - **Deadlock-Safe Board Protocol**: Enforces `post_message{text:...}` -> confirm `seq` -> `swarm_wait` on separate steps.
+  - **Keep-Alive Verification Loop**: Keeps `@executor` parked at zero token cost until `BypassSandbox` gates pass, bouncing non-trivial fixes back to `LOW`.
+  - **Worker Guardrails & Recovery**: Prevents multi-`edit_file` collisions, keeps workers out of `BypassSandbox`, and handles server restarts (`@executor resume`) and worker quota exhaustion.
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
