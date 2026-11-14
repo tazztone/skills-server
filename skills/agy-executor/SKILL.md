@@ -11,7 +11,7 @@ Execute approved plans on `gemini-4-hydrogen-low` (`LOW`) while keeping review, 
 
 Collect before spawning:
 - **Plan target**: absolute path to the approved plan artifact (or exact approved steps).
-- **Workspace root**: active repository path.
+- **Workspace root**: absolute active repository path (pass absolute paths in `brief` so file tools succeed on turn 1).
 - **Codebase context**: qualified symbols, paths, call chains, and `check_index_coverage` findings already gathered (workers start fresh and may lack MCP tools).
 
 - **Completion criterion:** Plan path, workspace root, and codebase pointers ready.
@@ -33,8 +33,8 @@ swarm{
 Include these 5 rules in `brief`:
 1. Read the approved plan artifact verbatim before editing.
 2. Follow workspace `GEMINI.md` / `AGENTS.md` (code style, phase commits, doc updates).
-3. Edit at most 2 `edit_file` blocks per file per turn; apply further edits sequentially or rewrite via `write_file`.
-4. Stay sandboxed: run sandbox-safe checks (`ruff`, `vitest`, unit tests) and list unsandboxed commands (DB setup, `chmod +x`, `git commit`) for `@coordinator` instead of passing `BypassSandbox: true`.
+3. Use absolute paths in `read_file`/`edit_file`/`write_file`; apply at most 2 `edit_file` calls per file per turn (sequence further edits or use `write_file`).
+4. Stay sandboxed: iterate on targeted single-file tests first (`WaitMsBeforeAsync: 10000`), end your turn while waiting on background tasks instead of calling `swarm_wait`, run the full sandbox-safe suite once before reporting, and list unsandboxed commands (DB setup, `chmod +x`, `git commit`) for `@coordinator` instead of passing `BypassSandbox: true`.
 5. Post `@coordinator` when done with: modified files, symbols, commands run, exact test results, and remaining unsandboxed steps.
 
 - **Completion criterion:** `executor` spawned on `gemini-4-hydrogen-low` and turn ended to await `#2`.

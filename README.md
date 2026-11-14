@@ -62,6 +62,23 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
     ```markdown
     When the user approves a plan (`/plan` approval or `Proceed`), delegate via `agy-executor` (`gemini-4-hydrogen-low`) instead of editing inline unless asked.
     ```
+  - **Install as Antigravity Plugin (toggleable)**: Bundle the skill + always-on rule under `~/.gemini/config/plugins/plan-executor/` so it can be toggled via `/plugins` or `agy plugin enable|disable plan-executor`:
+    ```bash
+    mkdir -p ~/.gemini/config/plugins/plan-executor/{rules,skills/agy-executor}
+    cat > ~/.gemini/config/plugins/plan-executor/plugin.json <<'EOF'
+    {
+      "name": "plan-executor",
+      "displayName": "Plan Executor (Hydrogen Low)",
+      "version": "1.0.0",
+      "description": "Delegates approved plans to a gemini-4-hydrogen-low swarm worker."
+    }
+    EOF
+    cat > ~/.gemini/config/plugins/plan-executor/rules/AGENTS.md <<'EOF'
+    ## Plan Execution Delegation
+    When the user approves a plan (`/plan` approval or `Proceed`), the planning/coordinator agent must not edit implementation files or run execution commands inline unless asked. Load `agy-executor` to delegate to `gemini-4-hydrogen-low`, then review and verify. (An executor worker receiving a delegated plan brief executes it directly.)
+    EOF
+    ln -sf /path/to/skills-server/skills/agy-executor/SKILL.md ~/.gemini/config/plugins/plan-executor/skills/agy-executor/SKILL.md
+    ```
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
