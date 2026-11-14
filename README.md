@@ -11,11 +11,11 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
 | [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
 | [`agy-executor`](./skills/agy-executor/SKILL.md) | Delegate execution of an approved `/plan` to a `gemini-4-hydrogen-low` swarm worker, then verify and commit on the parent model | `npx skills add tazztone/skills-server/skills --skill agy-executor` |
+| [`agy-retrospective`](./skills/agy-retrospective/SKILL.md) | Summarize session friction, remaining issues, next steps, and reusable knowledge, then curate findings into workspace `SUGGESTIONS.md` | `npx skills add tazztone/skills-server/skills --skill agy-retrospective` |
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
 | [`manage-prs`](./skills/manage-prs/SKILL.md) | Triage, review, and merge multiple GitHub PRs in structured, safe batches | `npx skills add tazztone/skills-server/skills --skill manage-prs` |
-| [`retrospective`](./skills/retrospective/SKILL.md) | Summarize session roadblocks and improvements, then dispatch an isolated subagent to ground, draft, and critique a follow-up plan | `npx skills add tazztone/skills-server/skills --skill retrospective` |
 | [`signal-stickers`](./skills/signal-stickers/SKILL.md) | Prepare, design, and upload custom animated/static sticker packs to Signal | `npx skills add tazztone/skills-server/skills --skill signal-stickers` |
 | [`userscript-development`](./skills/userscript-development/SKILL.md) | End-to-end userscript engineering for Tampermonkey, Violentmonkey, and ScriptCat (Shadow DOM UI, storage migration, ScriptCat workers) | `npx skills add tazztone/skills-server/skills --skill userscript-development` |
 
@@ -80,6 +80,47 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
     ln -sf /path/to/skills-server/skills/agy-executor/SKILL.md ~/.gemini/config/plugins/plan-executor/skills/agy-executor/SKILL.md
     ```
 
+### 🔄 [agy-retrospective](./skills/agy-retrospective/SKILL.md)
+* **Purpose**: Audit session friction, issues, and next steps into 4 concise sections and curate durable findings into `<workspace>/SUGGESTIONS.md` without bloat or duplicates.
+* **Install**:
+  ```bash
+  npx skills add tazztone/skills-server/skills --skill agy-retrospective
+  ```
+* **Key Features**:
+  - **4-Section Audit**: Outputs friction, room for improvement, next steps, and reusable takeaways directly to the user.
+  - **Living Curated Backlog**: Prunes resolved items and deduplicates entries in `<workspace>/SUGGESTIONS.md` rather than blindly appending.
+  - **Automatic Walkthrough Trigger**: Pairs with Antigravity plugin rules/hooks to run automatically whenever `walkthrough.md` is written.
+  - **Install as Antigravity Plugin (toggleable)**: Bundle the skill + always-on rule + Stop hook under `~/.gemini/config/plugins/agy-retrospective/` so it can be toggled via `/plugins` or `agy plugin enable|disable agy-retrospective`:
+    ```bash
+    mkdir -p ~/.gemini/config/plugins/agy-retrospective/{rules,skills/agy-retrospective,hooks}
+    cat > ~/.gemini/config/plugins/agy-retrospective/plugin.json <<'EOF'
+    {
+      "name": "agy-retrospective",
+      "displayName": "Session Retrospective (walkthrough -> SUGGESTIONS.md)",
+      "version": "1.0.0",
+      "description": "Runs a 4-section retrospective and curates workspace SUGGESTIONS.md whenever walkthrough.md is written."
+    }
+    EOF
+    cat > ~/.gemini/config/plugins/agy-retrospective/rules/AGENTS.md <<'EOF'
+    ## Post-Walkthrough Retrospective
+    Whenever you create or update `walkthrough.md`, load and execute the `agy-retrospective` skill in the same turn to output the 4-section session audit and curate `<workspace>/SUGGESTIONS.md` before stopping.
+    EOF
+    cat > ~/.gemini/config/plugins/agy-retrospective/hooks.json <<'EOF'
+    {
+      "walkthrough-retrospective-check": {
+        "Stop": [
+          {
+            "type": "command",
+            "command": "python3 ./hooks/check-retrospective.py",
+            "timeout": 5
+          }
+        ]
+      }
+    }
+    EOF
+    ln -sf /path/to/skills-server/skills/agy-retrospective/SKILL.md ~/.gemini/config/plugins/agy-retrospective/skills/agy-retrospective/SKILL.md
+    ```
+
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
 * **Install**:
@@ -127,17 +168,6 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Conflict Resolution**: Safely handles git conflicts locally and checks for overlapping changes between pull requests.
   - **Safe Execution**: Uses explicit command guidelines to avoid shell bugs (e.g. avoiding segfaulting commands like `gh pr checkout`).
   - **Interactive Gate**: Ensures human approval via an `implementation_plan.md` artifact before any branch modifications or merges are made.
-
-### 🔍 [retrospective](./skills/retrospective/SKILL.md)
-* **Purpose**: Automates post-session retrospective extraction, context-isolated follow-up planning via a 0-token subagent, and self-critique refinement.
-* **Install**:
-  ```bash
-  npx skills add tazztone/skills-server/skills --skill retrospective
-  ```
-* **Key Features**:
-  - **Full-Memory Extraction**: Summarizes roadblocks, friction, and candidate improvements in the main thread while session context is intact.
-  - **0-Token Subagent Compaction**: Hands off findings via `scratch/retrospective.md` to an isolated subagent (`TypeName="self"`), avoiding session token pollution without manual `/compact`.
-  - **Two-Pass Grounding & Critique**: Subagent triages findings against codebase/tests/docs (discarding false positives) to draft and self-critique `scratch/followup_plan.md`, which the main thread promotes to an interactive `followup_plan.md` artifact for approval.
 
 ### 🎨 [signal-stickers](./skills/signal-stickers/SKILL.md)
 * **Purpose**: Design, formatting, and publishing handbook for creating and uploading custom static and animated sticker packs to Signal.
