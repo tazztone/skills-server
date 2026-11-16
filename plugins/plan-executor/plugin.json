@@ -1,0 +1,10 @@
+{
+  "name": "plan-executor",
+  "displayName": "Plan Executor (Hydrogen Low)",
+  "version": "1.1.0",
+  "description": "Delegates execution of approved plans to a Gemini 4 Hydrogen (Low) subagent, followed by parent verification and retrospective.",
+  "suggestedPrompts": [
+    "Execute the approved plan using Hydrogen Low",
+    "Run /plan and delegate implementation on approval"
+  ]
+}
