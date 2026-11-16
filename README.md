@@ -10,8 +10,8 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 |------|-------------|-----------------|
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
 | [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
-| [`agy-executor`](./skills/agy-executor/SKILL.md) | Delegate execution of an approved `/plan` to a `gemini-4-hydrogen-low` swarm worker, then verify and commit on the parent model | `npx skills add tazztone/skills-server/skills --skill agy-executor` |
-| [`agy-retrospective`](./skills/agy-retrospective/SKILL.md) | Audit session friction, issues, next steps, and takeaways; curate `SUGGESTIONS.md` and propose minimal Repo Doc / `AGENTS.md` diffs via `learning_proposal.md` (`/learn`) | `npx skills add tazztone/skills-server/skills --skill agy-retrospective` |
+| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Delegate execution of an approved `/plan` to a `gemini-4-hydrogen-low` swarm worker, then verify and commit on the parent model (part of `plan-executor` plugin) | Included in `plugins/plan-executor` |
+| [`agy-retrospective`](./plugins/plan-executor/skills/agy-retrospective/SKILL.md) | Audit session friction, issues, next steps, and takeaways; curate `SUGGESTIONS.md` and propose minimal Repo Doc / `AGENTS.md` diffs via `learning_proposal.md` (`/learn`, part of `plan-executor` plugin) | Included in `plugins/plan-executor` |
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
@@ -47,11 +47,11 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Permission & Preflight Diagnostics**: Detects permission denial messages and sandboxing requirements without misrepresenting blocked runs as successful.
   - **Explicit Session Retries**: Prefers `--conversation <id>` retry targeting over `--resume-last` session guessing.
 
-### ⚙️ [agy-executor](./skills/agy-executor/SKILL.md)
+### ⚙️ [agy-executor](./plugins/plan-executor/skills/agy-executor/SKILL.md)
 * **Purpose**: Separate planning (`HIGH`) from execution (`Gemini 4 Hydrogen (Low)`) inside Antigravity (`agy`): when a plan is approved, delegate implementation to a `gemini-4-hydrogen-low` swarm worker, keep it alive through full verification, bounce fixes back to `LOW`, and review/commit on `HIGH`.
-* **Install**:
+* **Install**: Part of the [`plan-executor`](./plugins/plan-executor) plugin bundle.
   ```bash
-  npx skills add tazztone/skills-server/skills --skill agy-executor
+  ln -sf /path/to/skills-server/plugins/plan-executor ~/.gemini/config/plugins/plan-executor
   ```
 * **Key Features**:
   - **Exact Model Pinning via `swarm`**: Uses `swarm{action:"add", model:"gemini-4-hydrogen-low"}` (bypassing `agents/*.md` / `invoke_subagent`'s `modelTier`-only limitation).
@@ -59,43 +59,15 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Keep-Alive Verification Loop**: Keeps `@executor` parked at zero token cost until `BypassSandbox` gates pass, bouncing non-trivial fixes back to `LOW`.
   - **Worker Friction Handoff**: `@executor` reports factual coding friction/gotchas in its completion post so `agy-retrospective` can curate findings upon landing.
   - **Worker Guardrails & Recovery**: Prevents multi-`edit_file` collisions, keeps workers out of `BypassSandbox`, and handles server restarts (`@executor resume`) and worker quota exhaustion.
-  - **Optional Always-On Rule**: To auto-delegate on every `/plan` approval, add to global/project `AGENTS.md`:
-    ```markdown
-    When the user approves a plan (`/plan` approval or `Proceed`), delegate via `agy-executor` (`gemini-4-hydrogen-low`) instead of editing inline unless asked.
-    ```
-  - **Install as Antigravity Plugin (toggleable)**: Bundle the skill + always-on rule under `~/.gemini/config/plugins/plan-executor/` so it can be toggled via `/plugins` or `agy plugin enable|disable plan-executor`:
-    ```bash
-    mkdir -p ~/.gemini/config/plugins/plan-executor/{rules,skills/agy-executor}
-    cat > ~/.gemini/config/plugins/plan-executor/plugin.json <<'EOF'
-    {
-      "name": "plan-executor",
-      "displayName": "Plan Executor (Hydrogen Low)",
-      "version": "1.0.0",
-      "description": "Delegates approved plans to a gemini-4-hydrogen-low swarm worker."
-    }
-    EOF
-    cat > ~/.gemini/config/plugins/plan-executor/rules/AGENTS.md <<'EOF'
-    ## Plan Execution Delegation
-    When the user approves a plan (`/plan` approval or `Proceed`), the planning/coordinator agent must not edit implementation files or run execution commands inline unless asked. Load `agy-executor` to delegate to `gemini-4-hydrogen-low`, then review and verify. (An executor worker receiving a delegated plan brief executes it directly.)
-    EOF
-    ln -sf /path/to/skills-server/skills/agy-executor/SKILL.md ~/.gemini/config/plugins/plan-executor/skills/agy-executor/SKILL.md
-    ```
+  - **Dual Approval Support**: Supports default delegated execution (`Proceed`) or direct inline execution (`execute inline`).
 
-### 🔄 [agy-retrospective](./skills/agy-retrospective/SKILL.md)
+### 🔄 [agy-retrospective](./plugins/plan-executor/skills/agy-retrospective/SKILL.md)
 * **Purpose**: Audit session friction, issues, next steps, and takeaways; curate `<workspace>/SUGGESTIONS.md` and propose minimal Repo Doc or `AGENTS.md` / `GEMINI.md` updates via an approval-gated `learning_proposal.md` artifact (runs after `agy-executor` lands a worker, or manually via `/agy-retrospective` and `/learn`).
-* **Install**:
-  ```bash
-  npx skills add tazztone/skills-server/skills --skill agy-retrospective
-  ```
+* **Install**: Included in the [`plan-executor`](./plugins/plan-executor) plugin bundle.
 * **Key Features**:
   - **4-Section Audit & Signal Triage**: Audits coordinator/gate history and worker (`@executor`) friction reports, filtering out one-off noise and expected role boundaries (`BypassSandbox`, `git commit` handoffs).
   - **Living Curated Backlog**: Prunes resolved items and deduplicates entries in `<workspace>/SUGGESTIONS.md` rather than blindly appending.
   - **Approval-Gated Doc / `AGENTS.md` Proposals**: Emits `learning_proposal.md` with unified diffs (applying `create-agentsmd`'s Three-Condition Filter for minimalism) and waits for user approval before editing Repo Docs or `AGENTS.md`.
-  - **Plain-Skill Installation**: Symlink `skills/agy-retrospective` into `~/.gemini/config/skills/agy-retrospective` (or install via `npx skills add`) instead of using an always-on plugin/Stop hook:
-    ```bash
-    mkdir -p ~/.gemini/config/skills
-    ln -sf /path/to/skills-server/skills/agy-retrospective ~/.gemini/config/skills/agy-retrospective
-    ```
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
