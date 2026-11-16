@@ -1,6 +1,6 @@
 ---
 name: agy-retrospective
-description: 'Audit session friction, issues, next steps, and takeaways; curate workspace SUGGESTIONS.md and propose minimal Repo Doc or AGENTS.md diffs via learning_proposal.md. Trigger after writing walkthrough.md, on /agy-retrospective, or on /learn.'
+description: 'Audit session friction, issues, next steps, and takeaways; curate workspace SUGGESTIONS.md and propose minimal Repo Doc or AGENTS.md diffs via learning_proposal.md. Trigger after agy-executor lands a worker, on /agy-retrospective, or on /learn.'
 ---
 
 # Antigravity Retrospective
@@ -9,11 +9,11 @@ Audit the session into four concise sections, maintain `<workspace>/SUGGESTIONS.
 
 ## 1. Audit & Triage Session
 
-Inspect the session for:
+Review both coordinator/gate activity and any worker (`@executor`) completion-report friction for:
 - **Friction & Roadblocks**: Tool/command failures (non-zero exits, bad flags, path errors, loops), agent misunderstandings (hallucinations, wrong assumptions, missed paths), and user interventions (corrections, overrides, constraints).
 - **Issues & Room for Improvement**: Bugs, rough edges, or tech debt noticed in the codebase (`file:line` context).
 - **What's Next**: Concrete remaining tasks in priority order.
-- **Triage takeaways (signal vs. noise)**: Discard ephemeral one-offs (network blips, typos, external outages, scratch experiments). Retain systemic findings (undocumented conventions, silent edge cases, non-obvious constraints, repeat preferences) and assign each to `SUGGESTIONS.md`, Repo Docs, or `AGENTS.md` / `GEMINI.md`.
+- **Filter & triage (signal vs. noise)**: Verify worker-reported friction against observed diffs/logs. Discard ephemeral one-offs (network blips, typos, external outages, scratch experiments) and expected role boundaries (e.g., `@executor` deferring `BypassSandbox` or `git commit` to `@coordinator`). Retain systemic findings (undocumented conventions, silent edge cases, non-obvious constraints, repeat preferences) and assign each to `SUGGESTIONS.md`, Repo Docs, or `AGENTS.md` / `GEMINI.md`.
 
 Output all 4 sections concisely to the user (omit section 4 if nothing passes triage):
 1. **Friction & Roadblocks** (root cause and pivotal resolution per item, or brief note if none)
@@ -27,9 +27,10 @@ Output all 4 sections concisely to the user (omit section 4 if nothing passes tr
 
 Maintain `<workspace>/SUGGESTIONS.md` at the active project root directly via `edit_file` or `write_file`:
 
-1. Read existing `<workspace>/SUGGESTIONS.md` if present.
-2. Prune resolved items from `What's Next` and `Issues & Room for Improvement`; merge overlapping items; drop one-off noise.
-3. Update under three curated headings (keep empty headings clean):
+1. Respect clean-tree constraints: check `git check-ignore -q SUGGESTIONS.md`; if the session requires a clean `git` tree and `SUGGESTIONS.md` is tracked/unignored, skip file edits and note findings in chat.
+2. Read existing `<workspace>/SUGGESTIONS.md` if present.
+3. Prune resolved items from `What's Next` and `Issues & Room for Improvement`; merge overlapping items; drop one-off noise.
+4. Update under three curated headings (keep empty headings clean), following repo `AGENTS.md` / `GEMINI.md` formatting and commit rules:
    ```markdown
    # Suggestions & Backlog
 
@@ -52,7 +53,7 @@ If no retained takeaways warrant promotion to Repo Docs or `AGENTS.md` / `GEMINI
 ### Routing & Minimalism Rules
 - **Scope**: Route strictly to existing **Repo Docs / Specs / Runbooks** (preferred for local quirks, flags, domain context) or root **`AGENTS.md` / `GEMINI.md`** (universal invariants); leave skills, plugins, and MCP configs unchanged.
 - **Update first**: Edit existing sections, docs, or numbered rules concisely before creating new files or rules.
-- **Keep `AGENTS.md` minimal**: Read `skills/create-agentsmd/SKILL.md` (when available) and apply its **Three-Condition Filter**—include an instruction only if it is **uninferable**, **critical**, and **undocumented**; keep root `AGENTS.md` concise (<10 bullets, zero prose rationale, no standard commands).
+- **Keep `AGENTS.md` minimal**: Load the `create-agentsmd` skill (when available) and apply its **Three-Condition Filter**—include an instruction only if it is **uninferable**, **critical**, and **undocumented**; keep root `AGENTS.md` concise (<10 bullets, zero prose rationale, no standard commands).
 
 ### Artifact Proposal (Approval-Gated)
 1. Leave Repo Docs and `AGENTS.md` / `GEMINI.md` untouched until the user explicitly approves.

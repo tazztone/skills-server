@@ -57,6 +57,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Exact Model Pinning via `swarm`**: Uses `swarm{action:"add", model:"gemini-4-hydrogen-low"}` (bypassing `agents/*.md` / `invoke_subagent`'s `modelTier`-only limitation).
   - **Deadlock-Safe Board Protocol**: Enforces `post_message{text:...}` -> confirm `seq` -> `swarm_wait` on separate steps.
   - **Keep-Alive Verification Loop**: Keeps `@executor` parked at zero token cost until `BypassSandbox` gates pass, bouncing non-trivial fixes back to `LOW`.
+  - **Worker Friction Handoff**: `@executor` reports factual coding friction/gotchas in its completion post so `agy-retrospective` can curate findings upon landing.
   - **Worker Guardrails & Recovery**: Prevents multi-`edit_file` collisions, keeps workers out of `BypassSandbox`, and handles server restarts (`@executor resume`) and worker quota exhaustion.
   - **Optional Always-On Rule**: To auto-delegate on every `/plan` approval, add to global/project `AGENTS.md`:
     ```markdown
@@ -81,45 +82,19 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
     ```
 
 ### 🔄 [agy-retrospective](./skills/agy-retrospective/SKILL.md)
-* **Purpose**: Audit session friction, issues, next steps, and takeaways; curate `<workspace>/SUGGESTIONS.md` and propose minimal Repo Doc or `AGENTS.md` / `GEMINI.md` updates via an approval-gated `learning_proposal.md` artifact (supports `/agy-retrospective` and `/learn`).
+* **Purpose**: Audit session friction, issues, next steps, and takeaways; curate `<workspace>/SUGGESTIONS.md` and propose minimal Repo Doc or `AGENTS.md` / `GEMINI.md` updates via an approval-gated `learning_proposal.md` artifact (runs after `agy-executor` lands a worker, or manually via `/agy-retrospective` and `/learn`).
 * **Install**:
   ```bash
   npx skills add tazztone/skills-server/skills --skill agy-retrospective
   ```
 * **Key Features**:
-  - **4-Section Audit & Signal Triage**: Audits friction, issues, next steps, and reusable takeaways, discarding ephemeral noise and routing systemic findings by tier.
+  - **4-Section Audit & Signal Triage**: Audits coordinator/gate history and worker (`@executor`) friction reports, filtering out one-off noise and expected role boundaries (`BypassSandbox`, `git commit` handoffs).
   - **Living Curated Backlog**: Prunes resolved items and deduplicates entries in `<workspace>/SUGGESTIONS.md` rather than blindly appending.
   - **Approval-Gated Doc / `AGENTS.md` Proposals**: Emits `learning_proposal.md` with unified diffs (applying `create-agentsmd`'s Three-Condition Filter for minimalism) and waits for user approval before editing Repo Docs or `AGENTS.md`.
-  - **Automatic Walkthrough Trigger**: Pairs with Antigravity plugin rules/hooks to run automatically whenever `walkthrough.md` is written.
-  - **Install as Antigravity Plugin (toggleable)**: Bundle the skill + always-on rule + Stop hook under `~/.gemini/config/plugins/agy-retrospective/` so it can be toggled via `/plugins` or `agy plugin enable|disable agy-retrospective`:
+  - **Plain-Skill Installation**: Symlink `skills/agy-retrospective` into `~/.gemini/config/skills/agy-retrospective` (or install via `npx skills add`) instead of using an always-on plugin/Stop hook:
     ```bash
-    mkdir -p ~/.gemini/config/plugins/agy-retrospective/{rules,skills/agy-retrospective,hooks}
-    cat > ~/.gemini/config/plugins/agy-retrospective/plugin.json <<'EOF'
-    {
-      "name": "agy-retrospective",
-      "displayName": "Session Retrospective (walkthrough -> SUGGESTIONS.md)",
-      "version": "1.0.0",
-      "description": "Runs a 4-section retrospective and curates workspace SUGGESTIONS.md whenever walkthrough.md is written."
-    }
-    EOF
-    cat > ~/.gemini/config/plugins/agy-retrospective/rules/AGENTS.md <<'EOF'
-    ## Post-Walkthrough Retrospective
-    Whenever you create or update `walkthrough.md`, load and execute the `agy-retrospective` skill in the same turn to output the 4-section session audit and curate `<workspace>/SUGGESTIONS.md` before stopping.
-    EOF
-    cat > ~/.gemini/config/plugins/agy-retrospective/hooks.json <<'EOF'
-    {
-      "walkthrough-retrospective-check": {
-        "Stop": [
-          {
-            "type": "command",
-            "command": "python3 ./hooks/check-retrospective.py",
-            "timeout": 5
-          }
-        ]
-      }
-    }
-    EOF
-    ln -sf /path/to/skills-server/skills/agy-retrospective/SKILL.md ~/.gemini/config/plugins/agy-retrospective/skills/agy-retrospective/SKILL.md
+    mkdir -p ~/.gemini/config/skills
+    ln -sf /path/to/skills-server/skills/agy-retrospective ~/.gemini/config/skills/agy-retrospective
     ```
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
