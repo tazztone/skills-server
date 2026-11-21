@@ -10,8 +10,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 |------|-------------|-----------------|
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
 | [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
-| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Delegate execution of an approved `/plan` to a `gemini-4-hydrogen-low` swarm worker, then verify and commit on the parent model (part of `plan-executor` plugin) | Included in `plugins/plan-executor` |
-| [`agy-retrospective`](./plugins/plan-executor/skills/agy-retrospective/SKILL.md) | Audit session friction, issues, next steps, and takeaways; curate `SUGGESTIONS.md` and propose minimal Repo Doc / `AGENTS.md` diffs via `learning_proposal.md` (`/learn`, part of `plan-executor` plugin) | Included in `plugins/plan-executor` |
+| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Prompt for execution model on `/plan` approval, delegate to a swarm worker or run inline, and review final diff (part of `plan-executor` plugin) | Included in `plugins/plan-executor` |
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
@@ -48,26 +47,16 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Explicit Session Retries**: Prefers `--conversation <id>` retry targeting over `--resume-last` session guessing.
 
 ### ⚙️ [agy-executor](./plugins/plan-executor/skills/agy-executor/SKILL.md)
-* **Purpose**: Separate planning (`HIGH`) from execution (`Gemini 4 Hydrogen (Low)`) inside Antigravity (`agy`): when a plan is approved, delegate implementation to a `gemini-4-hydrogen-low` swarm worker, keep it alive through full verification, bounce fixes back to `LOW`, and review/commit on `HIGH`.
+* **Purpose**: Prompt for a target execution model on `/plan` approval inside Antigravity (`agy`), then execute inline or delegate implementation, verification, and commits to a `@executor` swarm worker with coordinator diff review.
 * **Install**: Part of the [`plan-executor`](./plugins/plan-executor) plugin bundle.
   ```bash
   ln -sf /path/to/skills-server/plugins/plan-executor ~/.gemini/config/plugins/plan-executor
   ```
 * **Key Features**:
-  - **Exact Model Pinning via `swarm`**: Uses `swarm{action:"add", model:"gemini-4-hydrogen-low"}` (bypassing `agents/*.md` / `invoke_subagent`'s `modelTier`-only limitation).
-  - **Deadlock-Safe Board Protocol**: Enforces `post_message{text:...}` -> confirm `seq` -> `swarm_wait` on separate steps.
-  - **Keep-Alive Verification Loop**: Keeps `@executor` parked at zero token cost until `BypassSandbox` gates pass, bouncing non-trivial fixes back to `LOW`.
-  - **Worker Friction Handoff**: `@executor` reports factual coding friction/gotchas in its completion post so `agy-retrospective` can curate findings upon landing.
-  - **Worker Guardrails & Recovery**: Prevents multi-`edit_file` collisions, keeps workers out of `BypassSandbox`, and handles server restarts (`@executor resume`) and worker quota exhaustion.
-  - **Dual Approval Support**: Supports default delegated execution (`Proceed`) or direct inline execution (`execute inline`).
-
-### 🔄 [agy-retrospective](./plugins/plan-executor/skills/agy-retrospective/SKILL.md)
-* **Purpose**: Audit session friction, issues, next steps, and takeaways; curate `<workspace>/SUGGESTIONS.md` and propose minimal Repo Doc or `AGENTS.md` / `GEMINI.md` updates via an approval-gated `learning_proposal.md` artifact (runs after `agy-executor` lands a worker, or manually via `/agy-retrospective` and `/learn`).
-* **Install**: Included in the [`plan-executor`](./plugins/plan-executor) plugin bundle.
-* **Key Features**:
-  - **4-Section Audit & Signal Triage**: Audits coordinator/gate history and worker (`@executor`) friction reports, filtering out one-off noise and expected role boundaries (`BypassSandbox`, `git commit` handoffs).
-  - **Living Curated Backlog**: Prunes resolved items and deduplicates entries in `<workspace>/SUGGESTIONS.md` rather than blindly appending.
-  - **Approval-Gated Doc / `AGENTS.md` Proposals**: Emits `learning_proposal.md` with unified diffs (applying `create-agentsmd`'s Three-Condition Filter for minimalism) and waits for user approval before editing Repo Docs or `AGENTS.md`.
+  - **Interactive Model Selection**: Queries `swarm{action:"models"}` and waits for user choice via `ask_question` (including `Inline (current model)`), unless model/`inline` was already specified.
+  - **Exact Model Pinning via `swarm`**: Uses `swarm{action:"add", model:"<chosen>"}` (bypassing `invoke_subagent`'s tier-only limitation).
+  - **Worker Ownership + Coordinator Review**: `@executor` runs implementation, tests, and phase `git commit`s; coordinator reviews final diff/commits and bounces fixes if needed.
+  - **Deadlock-Safe Board Protocol**: Enforces `post_message{text:...}` -> confirm `seq` -> `swarm_wait` on separate steps, plus server restart (`@executor resume`) and quota-switch recovery.
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.

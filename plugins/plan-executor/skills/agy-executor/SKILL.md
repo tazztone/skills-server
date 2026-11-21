@@ -1,59 +1,52 @@
 ---
 name: agy-executor
-description: 'Delegate an approved plan to a gemini-4-hydrogen-low swarm worker, then verify and commit on the parent model. Trigger on plan approval (/plan, Proceed).'
+description: 'Use when a /plan artifact is approved (Proceed or [Approved] plan.md) to select an execution model and run inline or via swarm.'
 ---
 
 # Antigravity Plan Executor
 
-Execute approved plans on `gemini-4-hydrogen-low` (`LOW`) while keeping review, unsandboxed gates, and commits on the parent (`HIGH`) model.
+Ask the user which model should execute an approved `/plan` (or run inline), delegate implementation, verification, and commits to `@executor` when a swarm model is chosen, and review the final diff on the coordinator.
 
-## 1. Prepare Handoff
+## 1. Select Model and Wait
 
-Collect before spawning:
-- **Plan target**: absolute path to the approved plan artifact (or exact approved steps).
-- **Workspace root**: absolute active repository path (pass absolute paths in `brief` so file tools succeed on turn 1).
-- **Codebase context**: qualified symbols, paths, call chains, and `check_index_coverage` findings already gathered (workers start fresh and may lack MCP tools).
+Unless the approval message already names a target model or `inline`:
 
-- **Completion criterion:** Plan path, workspace root, and codebase pointers ready.
+1. Call `swarm{action:"models"}` first to inspect live non-exhausted models and remaining quota.
+2. Call `ask_question` presenting available models plus `Inline (current model)` and wait for the answer before any edits or `swarm` dispatch.
+   - Never pick a default model, edit files, or spawn `@executor` before the user answers.
 
-## 2. Dispatch `@executor`
+## 2. Execute
 
-Spawn one worker pinned to `gemini-4-hydrogen-low` (`swarm{action:"add"}` directly), then **end the turn** so the worker's `@coordinator` post wakes you (`post_message`, `read_board`, and `swarm_wait` unlock next turn):
+- **If `Inline`**: implement, verify, and commit the approved plan directly on the current model (do not start a swarm).
+- **If a model was chosen**:
+  1. Gather the absolute plan path, workspace root, and relevant codebase context (qualified symbols, file paths, call chains, and `check_index_coverage` findings if indexed — workers start fresh without parent context).
+  2. Spawn one worker pinned to the chosen model, then **end the turn** (`post_message`, `read_board`, and `swarm_wait` unlock on the next turn):
 
 ```text
 swarm{
   action: "add",
   name: "executor",
-  model: "gemini-4-hydrogen-low",
+  model: "<chosen-model>",
   workspace: "inherit",
   brief: "..."
 }
 ```
 
-Include these 5 rules in `brief`:
-1. Read the approved plan artifact verbatim before editing.
+Include these 4 rules in `brief`:
+1. Read the approved plan artifact verbatim before editing; use absolute paths.
 2. Follow workspace `GEMINI.md` / `AGENTS.md` (code style, phase commits, doc updates).
-3. Use absolute paths in `read_file`/`edit_file`/`write_file`; apply at most 2 `edit_file` calls per file per turn (sequence further edits or use `write_file`).
-4. Stay sandboxed: iterate on targeted single-file tests first (`WaitMsBeforeAsync: 10000`), end your turn while waiting on background tasks instead of calling `swarm_wait`, run the full sandbox-safe suite once before reporting, and list unsandboxed commands (DB setup, `chmod +x`, `git commit`) for `@coordinator` instead of passing `BypassSandbox: true`.
-5. Post `@coordinator` when done with: modified files, symbols, commands run, exact test results, remaining unsandboxed steps, and factual coding friction/gotchas or codebase issues noticed (or `None`; update if bounced for fixes).
+3. Run all verification/tests and phase `git commit`s directly (`BypassSandbox: true` only when required, e.g., `.git` commits).
+4. Post `@coordinator [done]` when finished with: modified files, exact test/verification output, and commit SHAs.
 
-- **Completion criterion:** `executor` spawned on `gemini-4-hydrogen-low` and turn ended to await `#2`.
+## 3. Review and Land
 
-## 3. Verify, Bounce Fixes to `LOW`, and Land
-
-Keep `@executor` parked (`waiting` costs 0 tokens) until every gate and commit passes:
-
-1. Inspect `git status` and `git diff` against every item in the approved plan.
-2. Run unsandboxed prerequisites and full gates (`BypassSandbox: true` if required).
-3. If tests fail or non-trivial fixes (>5 lines) are needed, send exact failures back to `@executor` in **two separate steps** (confirm `{"status":"posted","seq":N}` before waiting — never batch `post_message` and `swarm_wait`):
-   - Step A: `post_message{text: "@executor ..."}` (parameter is `text`).
-   - Step B (next step): `swarm_wait{since: N}`.
-4. Repeat 1–3 until green, then run final `git commit` steps on `HIGH`.
-5. Kill the worker (`swarm{action:"kill", name:"executor"}`), write `walkthrough.md` (if in `/plan` mode), load and run `agy-retrospective` (if available) to filter worker friction + coordinator/gate friction, and report verified results.
-
-- **Completion criterion:** All gates pass after the final edit, planned commits are landed, `@executor` is killed, `walkthrough.md` is written if in `/plan`, and `agy-retrospective` (if available) has run.
+1. Inspect `git status`, `git diff`, and `git log` against every requirement in the approved plan.
+2. If review finds gaps or failures, bounce exact issues back to `@executor` in **two separate steps** (confirm `{"status":"posted","seq":N}` before waiting — never batch `post_message` and `swarm_wait`):
+   - Step A: `post_message{text: "@executor ..."}`
+   - Step B (next step): `swarm_wait{since: N}`
+3. Once verified, kill the worker (`swarm{action:"kill", name:"executor"}`) and report verified results.
 
 ## Recovery
 
-- **Server restart** (`stopped` in `swarm{action:"status"}`): revive with `post_message{text:"@executor resume"}`.
-- **Worker quota exhausted**: switch model in-place via `swarm{action:"model", name:"executor", model:"gemini-4-hydrogen-medium"}` (or `"gemini-3.8-flash-low"`).
+- **Server restart** (`stopped` in `swarm{action:"status"}`): revive via `post_message{text:"@executor resume"}`.
+- **Quota exhausted**: check `swarm{action:"models"}` and switch the worker via `swarm{action:"model", name:"executor", model:"..."}` (or ask the user via `ask_question` if unsure).
