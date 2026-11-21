@@ -1,36 +1,43 @@
 ---
 name: agy-executor
-description: 'Use when a /plan artifact is approved (Proceed or [Approved] plan.md) to select an execution model and run inline or via swarm.'
+description: 'Use when a /plan artifact is approved (Proceed or [Approved] plan.md) to select execution models before running.'
 ---
 
 # Antigravity Plan Executor
 
-Ask the user which model should execute an approved `/plan` (or run inline), delegate implementation, verification, and commits to `@executor` when a swarm model is chosen, and review the final diff on the coordinator.
+Ask the user for **orchestrator** (`high`/`xhigh` or keep current) and **executor** (`low`/`medium` or `Inline`) models in one `ask_question` call, delegate implementation, verification, and commits to `@executor` when a worker model is chosen, and review the final diff on the orchestrator.
 
-## 1. Select Model and Wait
+## 1. Select Models and Wait
 
 Unless the approval message already names a target model or `inline`:
 
-1. Call `swarm{action:"models"}` first to inspect live non-exhausted models and remaining quota.
-2. Call `ask_question` presenting available models plus `Inline (current model)` and wait for the answer before any edits or `swarm` dispatch.
-   - Never pick a default model, edit files, or spawn `@executor` before the user answers.
+1. Call `swarm{action:"models"}` first to inspect live non-exhausted models (`quota_remaining > 0%`).
+2. Call `ask_question` once with two questions (`questions` array) and wait before any edits or `swarm` dispatch:
+   - **Q1 — Orchestrator**: `(Recommended) Keep current model`, followed by non-exhausted `high` / `xhigh` models (include flagship tierless models such as Opus in this bucket).
+   - **Q2 — Executor**: non-exhausted `low` / `medium` models (include fast/mid tierless models such as Flash/Sonnet in this bucket), plus `Inline (run on orchestrator)`.
+   - Never pick default models, edit files, or spawn `@executor` before the user answers.
 
 ## 2. Execute
 
-- **If `Inline`**: implement, verify, and commit the approved plan directly on the current model (do not start a swarm).
-- **If a model was chosen**:
+- **If `Inline`**:
+  - If a different Orchestrator model was chosen, attempt `swarm{action:"model", model:"<orchestrator-model>"}`; if `swarm` rejects because no swarm is active, ask the user to switch model manually or confirm running on the current model.
+  - Implement, verify, and commit the approved plan directly on the orchestrator (do not start a swarm).
+- **If an Executor model was chosen** (or approval named a single target model, keeping current model as orchestrator):
   1. Gather the absolute plan path, workspace root, and relevant codebase context (qualified symbols, file paths, call chains, and `check_index_coverage` findings if indexed — workers start fresh without parent context).
-  2. Spawn one worker pinned to the chosen model, then **end the turn** (`post_message`, `read_board`, and `swarm_wait` unlock on the next turn):
+  2. Spawn one worker pinned to the chosen executor model:
 
 ```text
 swarm{
   action: "add",
   name: "executor",
-  model: "<chosen-model>",
+  model: "<executor-model>",
   workspace: "inherit",
   brief: "..."
 }
 ```
+
+  3. If a different Orchestrator model was chosen, switch the coordinator in-place (`swarm{action:"model", model:"<orchestrator-model>"}`).
+  4. **End the turn** (`post_message`, `read_board`, and `swarm_wait` unlock on the next turn).
 
 Include these 4 rules in `brief`:
 1. Read the approved plan artifact verbatim before editing; use absolute paths.

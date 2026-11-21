@@ -1,10 +1,10 @@
 {
   "name": "plan-executor",
   "displayName": "Plan Executor",
-  "version": "2.0.0",
-  "description": "Prompts for target execution model (swarm worker or inline) on /plan approval, delegates work, and reviews final diff.",
+  "version": "2.1.0",
+  "description": "Prompts for orchestrator (high/xhigh) and executor (low/medium or inline) models on /plan approval, delegates work, and reviews final diff.",
   "suggestedPrompts": [
-    "Execute the approved /plan and prompt for target model",
-    "Run /plan and pick execution model on approval"
+    "Execute the approved /plan and prompt for orchestrator and executor models",
+    "Run /plan and pick orchestrator/executor models on approval"
   ]
 }
