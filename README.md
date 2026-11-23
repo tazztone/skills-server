@@ -10,7 +10,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 |------|-------------|-----------------|
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
 | [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
-| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Defer to native `Orchestrator`; otherwise prompt for orchestrator (`high`/`xhigh`) and execution mode/model (`inline`, `@executor`, or parallel `workspace:"share"` `/swarm`) on `/plan` approval (`plan-executor`) | Included in `plugins/plan-executor` |
+| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Defer to native `Orchestrator`; otherwise gate `/plan` approvals on `Inline` vs `Swarm` and hand off to vanilla `/swarm` on a chosen worker model (`plan-executor`) | Included in `plugins/plan-executor` |
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
@@ -47,16 +47,16 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Explicit Session Retries**: Prefers `--conversation <id>` retry targeting over `--resume-last` session guessing.
 
 ### ⚙️ [agy-executor](./plugins/plan-executor/skills/agy-executor/SKILL.md)
-* **Purpose**: Defer cleanly when native `agy` `Orchestrator` (`planexecute`) is active; otherwise prompt on `/plan` approval for **orchestrator** (`high`/`xhigh` or keep current) and **execution mode/model** (`Inline`, single `@executor`, or parallel `workspace:"share"` `/swarm`), then review and land changes on the coordinator.
+* **Purpose**: Defer cleanly when native `agy` `Orchestrator` (`planexecute`) is active; otherwise gate `/plan` approval on `(Recommended) Inline` vs `Swarm`, choose a worker model if delegating, and hand off execution to vanilla `/swarm`.
 * **Install**: Part of the [`plan-executor`](./plugins/plan-executor) plugin bundle.
   ```bash
   ln -sf /path/to/skills-server/plugins/plan-executor ~/.gemini/config/plugins/plan-executor
   ```
 * **Key Features**:
-  - **Native `Orchestrator` Deferral**: Skips redundant prompting when `exit_plan_mode` / `[plan review]` is active or approval already specifies `inline`, a target model, or `swarm`.
-  - **Full-Catalog & Adaptive Prompting**: Queries `swarm{action:"models", all:true}` and calls `ask_question` once (2 questions for single-stream plans; 3 questions with Topology + Worker Model for disjoint multi-workstream plans).
-  - **Bounded Fork & Parallel `workspace:"share"` Fan-out**: Uses `fork:"coordinator"` only when target files were read directly with `0` broad search dumps, runs disjoint fresh `workspace:"share"` workers on parallel plans, merges commits before `kill`, and handles Turn-2 self-wakeup after `swarm{action:"model"}`.
-  - **Deadlock-Safe Board & Quota Bucket Guard**: Enforces `post_message` -> confirm `seq` -> `swarm_wait` on separate steps and cross-family switching when a model quota bucket is exhausted.
+  - **Native `Orchestrator` Deferral**: Skips prompting when `exit_plan_mode` / `[plan review]` is active or approval already specifies `inline`, a target model, or `swarm`.
+  - **Two-Step `Inline` vs `Swarm` Gate**: Asks `Inline` vs `Swarm` first with zero `swarm` calls on `Inline`.
+  - **Worker-Only Model Picker**: On `Swarm`, calls `swarm{action:"models", all:true}` (`quota_remaining > 0%`) and proposes **Hydrogen**, **3.8 Flash**, and **Sonnet** variants (`low` -> `high`), keeping the current session model as Coordinator.
+  - **Vanilla `/swarm` Handoff**: Lets native `/swarm` choose topology, workspace mode, and cleanup while Coordinator reviews final diffs/commits.
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
