@@ -1,8 +1,8 @@
 {
   "name": "plan-executor",
   "displayName": "Plan Executor",
-  "version": "2.1.0",
-  "description": "Prompts for orchestrator (high/xhigh) and executor (low/medium or inline) models on /plan approval, delegates work, and reviews final diff.",
+  "version": "2.2.0",
+  "description": "Defers to native Orchestrator when active; otherwise prompts for orchestrator (high/xhigh) and execution mode/model (inline, single @executor, or parallel workspace:share swarm), then reviews/merges final diff.",
   "suggestedPrompts": [
     "Execute the approved /plan and prompt for orchestrator and executor models",
     "Run /plan and pick orchestrator/executor models on approval"
