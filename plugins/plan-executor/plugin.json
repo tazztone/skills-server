@@ -1,8 +1,8 @@
 {
   "name": "plan-executor",
   "displayName": "Plan Executor",
-  "version": "2.3.0",
-  "description": "Defers to native Orchestrator when active; otherwise gates /plan approvals on Inline vs Swarm, lets vanilla /swarm execute on a chosen worker model (Hydrogen, 3.8 Flash, Sonnet), and reviews final diffs.",
+  "version": "2.4.0",
+  "description": "Defers to native Orchestrator when active; otherwise offers 1-click Inline vs cross-pool Argon/Neon + Hydrogen/3.8 Flash/Sonnet Swarm presets (with Custom fallback) and hands off to vanilla /swarm.",
   "suggestedPrompts": [
     "Execute the approved /plan and prompt for orchestrator and executor models",
     "Run /plan and pick orchestrator/executor models on approval"
