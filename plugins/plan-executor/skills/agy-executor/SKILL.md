@@ -5,85 +5,41 @@ description: 'Use when a /plan artifact is approved (Proceed or [Approved] plan.
 
 # Antigravity Plan Executor
 
-Prompt for orchestrator and execution mode/model via `ask_question` on `/plan` approval, defer when native `planexecute` is active, execute inline or via `/swarm`, and review/land diffs on coordinator.
-
-> **Foundational Gate Principle**: Executing edits, picking default models, or dispatching workers before `ask_question` completes violates this skill.
-
-## When NOT to Use
-- Native `planexecute` active (`exit_plan_mode` or `[plan review]`).
-- User approval specifies `inline`, target model, or `swarm`.
+> **Gate Rule**: Editing files, picking default models, or spawning workers before `ask_question` completes violates this skill.
 
 ## 1. Select Models and Wait
 
-1. Query `swarm{action:"models", all:true}` for dropdown models and live quota (`quota_remaining > 0%`). Never pick unlisted IDs.
-2. If `low`/`medium` models are exhausted, offer `Inline` or cross-family alternatives.
-3. Classify plan files and call `ask_question` **once**:
-   - **Single-stream plan** (1 file or coupled edits) — **2 questions**:
-     - **Q1 — Orchestrator**: `(Recommended) Keep current model`, plus available `high`/`xhigh` models.
-     - **Q2 — Execution**: `Inline (current session)` + available `low`/`medium` models. Recommend `Inline` for 1-file plans; top `low`/`medium` `@executor` for 2+ files.
-   - **Multi-workstream plan** (2+ disjoint file groups) — **3 questions**:
-     - **Q1 — Orchestrator**: `(Recommended) Keep current model`, plus available `high`/`xhigh` models.
-     - **Q2 — Topology**: `(Recommended) Parallel Swarm (<N> workers on workspace:"share")`, `Single @executor`, `Inline (current session)`.
-     - **Q3 — Worker Model**: available `low`/`medium` models (ignored if Q2 = `Inline`).
+1. Call `swarm{action:"models", all:true}` and keep models with `quota_remaining > 0%`. Never use unlisted IDs.
+2. Ask **once** via `ask_question`:
+   - **Q1 — Orchestrator**: `(Recommended) Keep current model`, plus available `high`/`xhigh` models.
+   - **Q2 — Execution**:
+     - *1 stream / coupled edits*: `Inline (current session)` + available `low`/`medium` models (recommend `Inline` for `1 file`; top `low`/`medium` `@executor` for `2+ files`).
+     - *2+ disjoint file groups*: `(Recommended) Parallel Swarm (workspace:"share")`, `Single @executor`, `Inline (current session)`.
+   - **Q3 — Worker Model** *(2+ disjoint groups only)*: available `low`/`medium` models (ignored if Q2 = `Inline`).
 
 ## 2. Execute
 
-### Inline
-Do not call `swarm`. If Q1 changed model, prompt user to switch via `/model`. Implement, verify, commit directly.
+- **Inline**: Do not call `swarm`. If Q1 changed model, tell user to switch via `/model`. Implement, verify, commit directly.
+- **Single `@executor`**: Spawn `swarm{action:"add", name:"executor", model:"<worker-model>", workspace:"inherit", brief:...}`. Pass `fork:"coordinator"` only if target files were read directly with `0` broad search dumps; otherwise omit.
+- **Parallel `/swarm`**: Omit `fork`; spawn disjoint `workspace:"share"` workers (`tasks:[...]` on `name:"exec"`, or `exec-<area>`).
+- **Coordinator switch**: If Q1 changed model, call `swarm{action:"model", model:"<orchestrator-model>"}` after `add`. On Turn-2 self-wakeup, call `swarm_wait{since: <brief_seq>}` — do **not** re-brief.
 
-### Single `@executor`
-1. Set `swarm{action:"title", title:"<plan title>"}`.
-2. Pass `fork:"coordinator"` (`workspace:"inherit"`) **only** when target files were read directly and `0` broad search dumps occurred; otherwise omit `fork`.
-3. Spawn: `swarm{action:"add", name:"executor", model:"<worker-model>", workspace:"inherit", brief:"..."}`. Never spawn `narrator` or `monitor`.
-4. Switch coordinator model if Q1 changed: `swarm{action:"model", model:"<orchestrator-model>"}`.
-5. On Turn-2 self-switch wakeup, **do not re-brief**; call `swarm_wait{since: <brief_seq>}`.
-
-### Parallel `/swarm` Fan-out
-1. Set `swarm{action:"title", title:"<plan title>"}`.
-2. Omit `fork`. Spawn disjoint workers on `workspace:"share"`: `swarm{action:"add", name:"exec", tasks:[...], model:"<worker-model>", workspace:"share", brief:"..."}` (or separate `exec-<area>`). Never spawn `narrator` or `monitor`.
-3. Switch coordinator model if Q1 changed; wait without re-briefing.
-
-### Required `brief` Contract
-Worker `brief` structure:
-```json
-{
-  "action": "add",
-  "name": "executor",
-  "model": "<worker-model>",
-  "workspace": "inherit",
-  "brief": "Plan: /path/to/plan.md\nScope: edit only <files>\nVerify & Commit: run <tests>; commit locally with git commit -m '...' (BypassSandbox: true only for .git); do not push\nReport: post @coordinator [done] with modified files, verification output, commit SHAs, share path if parallel"
-}
+Required `brief` slots:
+```text
+Plan: /abs/path/to/plan.md
+Scope: edit only <files/slice>
+Verify & commit: <test command>; follow workspace commit rules
+Report: @coordinator [done] with modified files, check output, commit SHAs[, share path]
 ```
 
-## 3. Review, Merge, and Land
+## 3. Review, Land, and Kill
 
-1. **Single `@executor`**: inspect `git status`, `git diff`, `git log` against plan requirements.
-2. **Parallel Swarm**: land worker commits and run cross-slice tests in coordinator workspace BEFORE `swarm{action:"kill"}` (`kill` deletes `share` workspaces).
-3. **Gaps**: bounce fixes before kill:
-   - Step A: `post_message{text: "@<worker> fix <issue>"}` (confirm `{"status":"posted","seq":N}`; never batch)
-   - Step B: `swarm_wait{since: N}`
-4. **Cleanup**: once verified, kill workers individually (`tasks:[...]` spawns `exec-1..exec-N`; call `swarm{action:"kill", name:"exec-1"}`, etc.).
+1. **Single `@executor`**: inspect `git status`, `git diff`, and `git log`.
+2. **Parallel `/swarm`**: merge/cherry-pick all worker commits into coordinator workspace and run cross-slice checks **before** `swarm{action:"kill"}` (kills delete `share` workspaces).
+3. **Gaps**: `post_message` → confirm `seq` → `swarm_wait{since: N}` on next step (never batch).
+4. **Cleanup**: kill workers individually (`exec-1..exec-N` when `tasks:[...]` was used).
 
-## 4. Recovery & Diagnostics
+## Gotchas
 
-- **Stopped worker**: revive via `post_message{text:"@<worker> resume"}`.
-- **Quota exhausted**: ensure worker is `waiting`, then switch via `swarm{action:"model", name:"<worker>", model:"..."}` across quota families.
-
-## Common Mistakes
-
-| Mistake | Correction |
-|---|---|
-| Editing immediately on approval | Call `swarm{action:"models", all:true}` and `ask_question` first. |
-| Calling `swarm{action:"kill"}` before merging | Land commits first; `kill` deletes `workspace:"share"`. |
-| Killing before bouncing fixes | Test cross-slice and bounce gaps before killing workers. |
-| Killing `exec` after `tasks:[...]` | Kill each member by numbered name (`exec-1..exec-N`). |
-| Re-briefing on self-switch wakeup | Do not re-send tasks. Call `swarm_wait{since: brief_seq}`. |
-| Switching to same family on quota error | Switch across provider/model families. |
-
-## Red Flags - STOP
-
-- "Hurry/no chatter; skip questions."
-- "Small 3-line tweak; edit directly."
-- "Kill workers now and pull commits later."
-- "Kill workers before testing and bouncing fixes."
-- "Re-brief worker because coordinator model switched."
+- `swarm{action:"models"}` without `all:true` omits non-suggested models.
+- Same-family models share quota buckets (switching `hydrogen-medium` → `hydrogen-low` stays exhausted; switch across families).

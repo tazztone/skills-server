@@ -55,8 +55,8 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 * **Key Features**:
   - **Native `Orchestrator` Deferral**: Skips redundant prompting when `exit_plan_mode` / `[plan review]` is active or approval already specifies `inline`, a target model, or `swarm`.
   - **Full-Catalog & Adaptive Prompting**: Queries `swarm{action:"models", all:true}` and calls `ask_question` once (2 questions for single-stream plans; 3 questions with Topology + Worker Model for disjoint multi-workstream plans).
-  - **Bounded Fork & Parallel `workspace:"share"` Fan-out**: Supports `fork:"coordinator"` on short single-`@executor` runs, fresh disjoint `workspace:"share"` workers on parallel plans (without `narrator`/`monitor` overhead), merge-before-`kill` safety, and Turn-2 self-wakeup handling after `swarm{action:"model"}`.
-  - **Deadlock-Safe Board & Quota Recovery**: Enforces `post_message` -> confirm `seq` -> `swarm_wait` on separate steps, `waiting`-state checks before `swarm{action:"model"}`, cross-family quota fallback, and `transcript.jsonl` model verification.
+  - **Bounded Fork & Parallel `workspace:"share"` Fan-out**: Uses `fork:"coordinator"` only when target files were read directly with `0` broad search dumps, runs disjoint fresh `workspace:"share"` workers on parallel plans, merges commits before `kill`, and handles Turn-2 self-wakeup after `swarm{action:"model"}`.
+  - **Deadlock-Safe Board & Quota Bucket Guard**: Enforces `post_message` -> confirm `seq` -> `swarm_wait` on separate steps and cross-family switching when a model quota bucket is exhausted.
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.
