@@ -11,7 +11,7 @@ description: 'Use when a /plan artifact is approved (Proceed or [Approved] plan.
 Call `ask_question` once with short labels (omit raw IDs in UI; do **not** call `swarm{action:"models"}` beforehand):
 - `(Recommended) Inline (current session)`
 - `Swarm: Neon Med -> Hydrogen Low` (`gemini-4-neon-medium` / `gemini-4-hydrogen-low`)
-- `Swarm: Neon High -> Hydrogen Low` (`gemini-4-neon-high` / `gemini-4-hydrogen-low`)
+- `Swarm: Neon Med -> Hydrogen Med` (`gemini-4-neon-medium` / `gemini-4-hydrogen-medium`)
 - `Swarm: Neon High -> Hydrogen Med` (`gemini-4-neon-high` / `gemini-4-hydrogen-medium`)
 - `Swarm: Neon XHigh -> Hydrogen Med` (`gemini-4-neon-xhigh` / `gemini-4-hydrogen-medium`)
 - `Swarm: Neon Med -> Sonnet Med` (`gemini-4-neon-medium` / `claude-sonnet-5-5-medium`)
