@@ -10,7 +10,7 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
 |------|-------------|-----------------|
 | [`agentic-engineering`](./skills/agentic-engineering/SKILL.md) | Transition from casual vibe coding to disciplined agentic engineering | `npx skills add tazztone/skills-server/skills --skill agentic-engineering` |
 | [`agy-delegate`](./skills/agy-delegate/SKILL.md) | Delegate coding tasks to Google Antigravity CLI (`agy`) as a background implementer with structured status handling and worktree safety | `npx skills add tazztone/skills-server/skills --skill agy-delegate` |
-| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Defer to native `Orchestrator`; otherwise offer 1-click `Inline` vs cross-pool Argon/Neon Swarm presets and hand off to vanilla `/swarm` (`plan-executor`) | Included in `plugins/plan-executor` |
+| [`agy-executor`](./plugins/plan-executor/skills/agy-executor/SKILL.md) | Defer to native `Orchestrator`; otherwise offer 1-click `Inline` vs Neon/Argon Swarm presets (lazy quota check, Custom fallback) using `<swarm>` tools (`plan-executor`) | Included in `plugins/plan-executor` |
 | [`create-agentsmd`](./skills/create-agentsmd/SKILL.md) | Generate a minimal, high-signal `AGENTS.md` file at the repository root | `npx skills add tazztone/skills-server/skills --skill create-agentsmd` |
 | [`davinci-resolve`](./skills/davinci-resolve/SKILL.md) | Scripting, automation, and plugin development for DaVinci Resolve (Python/Lua, Electron, Fuses) | `npx skills add tazztone/skills-server/skills --skill davinci-resolve` |
 | [`gnome-extension-dev`](./skills/gnome-extension-dev/SKILL.md) | Build, debug, and package GNOME Shell extensions using GJS and ESModules | `npx skills add tazztone/skills-server/skills --skill gnome-extension-dev` |
@@ -47,16 +47,16 @@ Skills are compatible with any agent that supports the [skills.sh](https://skill
   - **Explicit Session Retries**: Prefers `--conversation <id>` retry targeting over `--resume-last` session guessing.
 
 ### ⚙️ [agy-executor](./plugins/plan-executor/skills/agy-executor/SKILL.md)
-* **Purpose**: Defer cleanly when native `agy` `Orchestrator` (`planexecute`) is active; otherwise check live quota and offer 1-click `(Recommended) Inline` vs cross-pool Coordinator+Worker `/swarm` presets (`Argon High`, `Neon High`, `Current` -> `Hydrogen`, `3.8 Flash`, `Sonnet`), with `Custom Swarm` fallback.
+* **Purpose**: Defer cleanly when native `agy` `Orchestrator` (`planexecute`) is active; otherwise offer 1-click `(Recommended) Inline` vs Neon/Argon Coordinator+Worker `<swarm>` presets (`Neon Med/High/XHigh`, `Argon High`, `Current` -> `Hydrogen`, `Sonnet`) with lazy quota checks and `Custom Swarm` fallback.
 * **Install**: Part of the [`plan-executor`](./plugins/plan-executor) plugin bundle.
   ```bash
   ln -sf /path/to/skills-server/plugins/plan-executor ~/.gemini/config/plugins/plan-executor
   ```
 * **Key Features**:
-  - **Native `Orchestrator` Deferral**: Skips prompting when `exit_plan_mode` / `[plan review]` is active or approval already specifies `inline`, a target model, or `swarm`.
-  - **1-Click Live-Quota Presets**: Calls `swarm{action:"models", all:true}` (`quota_remaining > 0%`, omitting `gemini-pro-orchestrator-*`) and offers `Inline`, cross-pool `Argon High` / `Neon High` / `Current` combos with live `%`, plus `Custom Swarm`.
-  - **Ordered Fallback Picker**: In `Custom Swarm`, picks Coordinator (`Keep current` + non-orchestrator `high`/`xhigh`) and Worker (**Hydrogen**, **3.8 Flash**, **Sonnet**, ordered `low` -> `high`).
-  - **Vanilla `/swarm` Handoff**: Lets native `/swarm` handle topology/workspaces while handling Coordinator `swarm{action:"model"}` Turn-2 self-wakeup cleanly via `swarm_wait{since: <brief_seq>}`.
+  - **Native `Orchestrator` Deferral**: Skips prompting when inside a swarm worker, `exit_plan_mode` / `[plan review]` is active, or approval already specifies `inline`, a target model, or `swarm`.
+  - **1-Click Presets & Lazy Quota**: Presents `Inline`, `Neon Med/High/XHigh`, single `Argon High`, and `Current` combos immediately without pre-calling `swarm{action:"models"}`; calls `swarm{action:"models", all:true}` (`quota_remaining > 0%`, omitting `gemini-pro-orchestrator*`) only on `Custom Swarm` or quota error.
+  - **Ordered Fallback Picker**: In `Custom Swarm`, picks Coordinator (`Current` + non-orchestrator `high`/`xhigh`) and Worker (**Hydrogen**, **3.8 Flash**, **Sonnet**, ordered `low` -> `high`).
+  - **Direct `<swarm>` Execution**: Calls `swarm{action:"add"}` directly without `/swarm` skill handoff, handling Coordinator `swarm{action:"model"}` Turn-2 self-wakeup cleanly via `swarm_wait{since: <brief_seq>}`.
 
 ### 📑 [create-agentsmd](./skills/create-agentsmd/SKILL.md)
 * **Purpose**: Automatically generates a minimal, high-signal `AGENTS.md` file at the root of a repository. It filters out obvious or already documented instructions, capturing only critical, uninferable rules to prevent AI agents from running into common mistakes.

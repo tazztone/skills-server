@@ -1,25 +1,25 @@
 # Plan Executor (`plan-executor`)
 
-Antigravity (`agy`) plugin that defers to native `Orchestrator` / `planexecute` when active, or offers 1-click `Inline` vs live-quota **Coordinator + Worker** `/swarm` presets (`Argon High`, `Neon High`, or `Current` -> `Hydrogen` / `3.8 Flash` / `Sonnet`) with `Custom Swarm` fallback and vanilla `/swarm` execution.
+Antigravity (`agy`) plugin that defers to native `Orchestrator` / `planexecute` when active, or offers 1-click `Inline` vs **Coordinator + Worker** `<swarm>` presets (`Neon Med/High/XHigh`, `Argon High`, `Current` -> `Hydrogen` / `Sonnet`) with lazy quota checks, `Custom Swarm` fallback, and direct `<swarm>` execution.
 
 ## Native `Orchestrator` vs. `plan-executor`
 
 - **Native `Orchestrator` (`planexecute`) active** (`exit_plan_mode` tool or `[plan review]` handoff): `plan-executor` skips prompting so native single-stream `Planner -> Executor -> Reviewer` runs uninterrupted.
-- **Standard session**: `plan-executor` calls `swarm{action:"models", all:true}` (`quota_remaining > 0%`, excluding `gemini-pro-orchestrator-*`), shows 1-click Q1 presets with live `%`, and hands Swarm execution off to vanilla `/swarm`.
-- **Why custom orchestration was stripped (`v2.2.0` -> `v2.4.0`)**: Vanilla `agy` already owns parallel topology, `workspace:"share"`, `fork`, `post_message` / `swarm_wait`, and `kill`. Keeping [SKILL.md](./skills/agy-executor/SKILL.md) focused solely on the mode/preset gate eliminates duplication and context bloat.
+- **Standard session**: `plan-executor` presents 1-click Q1 presets immediately **without** calling `swarm{action:"models"}` beforehand; it calls `swarm{action:"models", all:true}` lazily only if `Custom Swarm` is picked or quota rejects `add`/`model` (excluding `gemini-pro-orchestrator*`).
+- **Why custom orchestration was stripped (`v2.2.0` -> `v2.5.0`)**: Vanilla `agy` already owns parallel topology, `workspace:"share"`, `fork`, `post_message` / `swarm_wait`, and `kill`. Keeping [SKILL.md](./skills/agy-executor/SKILL.md) focused solely on the mode/preset gate eliminates duplication and context bloat.
 
 ## Components
 
-- **Rule** (`rules/AGENTS.md`): Triggers on `/plan` artifact approvals (`Proceed` or `[Approved] plan.md`) unless native `planexecute` is active or the approval already specifies `inline`, a target model, or `swarm`. Keeps spawned workers executing directly without re-asking.
-- **Skill** (`skills/agy-executor/SKILL.md`): Live quota check (`swarm{action:"models", all:true}`), 1-click Q1 `Inline` + Argon/Neon/Current presets, `Custom Swarm` fallback (`Hydrogen`, `3.8 Flash`, `Sonnet` `low` -> `high`), vanilla `/swarm` handoff, and Turn-2 Coordinator self-wakeup handling.
+- **Rule** (`rules/AGENTS.md`): Compact 32-word gate triggering on `/plan` artifact approvals (`Proceed` or `[Approved] plan.md`) unless inside a swarm worker, native `planexecute` (`exit_plan_mode`/`[plan review]`), or explicit `inline`/model/`swarm`.
+- **Skill** (`skills/agy-executor/SKILL.md`): 1-click Q1 `Inline` + Neon Med/High/XHigh, single Argon High, and Current presets, lazy `swarm{action:"models", all:true}` on `Custom Swarm` or quota error (`Hydrogen`, `3.8 Flash`, `Sonnet` `low` -> `high`), direct `<swarm>` tool execution without `/swarm` skill handoff, and Turn-2 Coordinator self-wakeup handling.
 
 ## Workflow
 
 1. Coordinator presents `/plan` artifact (`plan.md`).
 2. User approves (`Proceed` or `[Approved] plan.md`).
-3. Coordinator calls `swarm{action:"models", all:true}` and asks **Q1** once: `(Recommended) Inline (current session)`, cross-pool presets (`Argon High -> Hydrogen Low/Med`, `Argon High -> 3.8 Flash Med`, `Argon High -> Sonnet Med`, `Neon High -> Hydrogen Low`, `Current -> Hydrogen Low/Med`), or `Custom Swarm`.
+3. Coordinator asks **Q1** once (no pre-call to `swarm{action:"models"}`): `(Recommended) Inline (current session)`, `Neon Med/High/XHigh -> Hydrogen Low/Med` or `Sonnet Med`, `Argon High -> Hydrogen Low`, `Current -> Hydrogen Low`, or `Custom Swarm`.
 4. **If `Inline`**: Coordinator implements, verifies, and commits directly without calling `swarm`.
-5. **If `Swarm`** (or `Custom Swarm` after Q2): Coordinator hands execution off to vanilla `/swarm` pinned to the chosen worker model with the plan path; if Coordinator model changed, calls `swarm{action:"model"}` after `add`, handles Turn-2 self-wakeup via `swarm_wait{since: <brief_seq>}` without re-briefing, and reviews final diffs before killing workers.
+5. **If `Swarm`** (or `Custom Swarm` after lazy `swarm{action:"models", all:true}` + Q2): Coordinator calls `swarm{action:"add", model:"<worker>"}` directly with the plan path (never `gemini-pro-orchestrator*`); if quota rejects `add`/`model`, calls `swarm{action:"models", all:true}` to switch or re-ask; if Coordinator != active model, calls `swarm{action:"model"}` after `add` and handles Turn-2 self-wakeup via `swarm_wait{since: <brief_seq>}` without re-briefing.
 
 ---
 
@@ -38,15 +38,15 @@ Models in the same pool share quota and reset windows; changing effort (`low` ->
 
 | Pool | Models Observed | Reset Pattern |
 |---|---|---|
-| `GEMINI MODELS` (5h + Weekly) | `gemini-4-hydrogen-*`, `gemini-4-neon-*`, `gemini-3.8-flash-*`, `gemini-pro-orchestrator-neon` | Shared 5-hour sliding reset |
+| `GEMINI MODELS` (5h + Weekly) | `gemini-4-hydrogen-*`, `gemini-4-neon-*`, `gemini-4-carbon-*`, `gemini-3.8-flash-*`, `gemini-pro-orchestrator` (`Carbon`), `gemini-pro-orchestrator-neon` | Shared 5-hour sliding reset |
 | `GEMINI 4 ARGON` (Weekly) | `gemini-4-argon-low/medium/high`, `gemini-pro-orchestrator-g1-pro` (planner leg) | Separate weekly sliding reset |
 | Claude / 3P | `claude-opus-5-5-*`, `claude-sonnet-5-5-*`, `gpt-oss-120b-medium` (legacy `4.6` separate) | Separate multi-day reset |
 
 - **Optimal cross-pool split**: Pair `gemini-4-argon-high` (Coordinator, weekly `GEMINI 4 ARGON` pool) with `gemini-4-hydrogen-low`/`medium`, `gemini-3.8-flash-medium`, or `claude-sonnet-5-5-medium` (Workers) so coordinator review does not drain the worker pool.
 
-### Why `gemini-pro-orchestrator-*` Is Excluded From Swarm Presets
+### Why `gemini-pro-orchestrator*` Is Excluded From Swarm Presets
 
-- `codeassistclient.synthesizeOrchestratorModels` wires `gemini-pro-orchestrator` (`M667`, `plan-execute-config`) to delegate internally to `gemini-flash-worker-agy` (`M669` -> `M432` Hydrogen).
+- `codeassistclient.synthesizeOrchestratorModels` wires `gemini-pro-orchestrator` (`Carbon`, `M667`, `plan-execute-config`), `gemini-pro-orchestrator-argon`, and `gemini-pro-orchestrator-neon` to delegate internally to `gemini-flash-worker-agy` (`M669` -> `M432` Hydrogen); filtering requires the `gemini-pro-orchestrator*` wildcard to cover bare `gemini-pro-orchestrator` as well as `-argon`/`-neon`.
 - `planexecute.NewGateHook` locks those models into read-only `Plan mode` (`exit_plan_mode` / `enter_plan_mode`), refusing workspace edits until handoff and interrupting for review (`A plan review is due...`).
 - Using `gemini-4-argon-high` or `gemini-4-neon-high` as Swarm Coordinator avoids `Plan mode` locks while keeping the same planning family. To use standalone `Orchestrator (Neon)` outside Swarm, run `agy --model gemini-pro-orchestrator-neon` or highlight `Orchestrator` in `/model` and cycle `Planner` with `←`/`→` or `Tab`.
 
