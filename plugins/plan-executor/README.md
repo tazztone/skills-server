@@ -17,7 +17,7 @@ Antigravity (`agy`) plugin that defers to native `Orchestrator` / `planexecute` 
 
 1. Coordinator presents `/plan` artifact (`plan.md`).
 2. User approves (`Proceed` or `[Approved] plan.md`).
-3. Coordinator asks **Q1** once (no pre-call to `swarm{action:"models"}`): `(Recommended) Inline (current session)`, `Neon Med/High/XHigh -> Hydrogen Low/Med` or `Sonnet Med`, `Argon High -> Hydrogen Low`, `Current -> Hydrogen Low`, or `Custom Swarm`.
+3. Coordinator asks **Q1** once (no pre-call to `swarm{action:"models"}`): `(Recommended) Inline (current session)`, `Neon Med/High/XHigh -> Hydrogen Low/Med` or `Neon Med -> Sonnet Med`, `Argon High -> Hydrogen Low`, `Current -> Hydrogen Low/Med`, or `Custom Swarm`.
 4. **If `Inline`**: Coordinator implements, verifies, and commits directly without calling `swarm`.
 5. **If `Swarm`** (or `Custom Swarm` after lazy `swarm{action:"models", all:true}` + Q2): Coordinator calls `swarm{action:"add", model:"<worker>"}` directly with the plan path (never `gemini-pro-orchestrator*`); if quota rejects `add`/`model`, calls `swarm{action:"models", all:true}` to switch or re-ask; if Coordinator != active model, calls `swarm{action:"model"}` after `add` and handles Turn-2 self-wakeup via `swarm_wait{since: <brief_seq>}` without re-briefing.
 
