@@ -1,5 +1,3 @@
 ## Plan Execution Delegation
 
-Applies only to `/plan` artifact approvals (`Proceed` or `[Approved] plan.md`), except when native `planexecute` (`exit_plan_mode` / `[plan review]`) is active or the approval already names `inline`, a target model, or `swarm`:
-- **Coordinator**: Do not edit files, pick default models, or spawn workers on your own; load `agy-executor` first.
-- **Worker Execution**: Any spawned swarm worker executes its assigned brief directly without re-asking or spawning sub-workers.
+On `/plan` approval (`Proceed` or `[Approved] plan.md`), if not a swarm worker, native `planexecute` (`exit_plan_mode`/`[plan review]`), or explicit `inline`/model/`swarm`: do not edit or spawn directly; load `agy-executor` first.
