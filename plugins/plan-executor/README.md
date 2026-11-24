@@ -1,58 +1,42 @@
 # Plan Executor (`plan-executor`)
 
-Antigravity (`agy`) plugin that defers to native `Orchestrator` / `planexecute` when active, or offers 1-click `Inline` vs **Coordinator + Worker** `<swarm>` presets (`Neon Med/High/XHigh`, `Argon High`, `Current` -> `Hydrogen` / `Sonnet`) with lazy quota checks, `Custom Swarm` fallback, and direct `<swarm>` execution.
+Antigravity (`agy`) plugin that defers to native `Orchestrator` (`planexecute`), or on `/plan` approvals offers 1-click `Inline` vs **Coordinator + Worker** `<swarm>` presets with lazy quota checks and `Custom Swarm` fallback.
 
-## Native `Orchestrator` vs. `plan-executor`
+## When to Use vs. Native `Orchestrator`
 
-- **Native `Orchestrator` (`planexecute`) active** (`exit_plan_mode` tool or `[plan review]` handoff): `plan-executor` skips prompting so native single-stream `Planner -> Executor -> Reviewer` runs uninterrupted.
-- **Standard session**: `plan-executor` presents 1-click Q1 presets immediately **without** calling `swarm{action:"models"}` beforehand; it calls `swarm{action:"models", all:true}` lazily only if `Custom Swarm` is picked or quota rejects `add`/`model` (excluding `gemini-pro-orchestrator*`).
-- **Why custom orchestration was stripped (`v2.2.0` -> `v2.5.0`)**: Vanilla `agy` already owns parallel topology, `workspace:"share"`, `fork`, `post_message` / `swarm_wait`, and `kill`. Keeping [SKILL.md](./skills/agy-executor/SKILL.md) focused solely on the mode/preset gate eliminates duplication and context bloat.
+- **Skip `plan-executor` (use `/model -> Orchestrator`)** for single-stream `Planner -> Hydrogen` work: native `Orchestrator` already supports `Neon`/`Carbon`/`Argon`/`Opus 5.5` planners + `Hydrogen` executor + `Effort` sliders inside `/model` (`Tab`/`Shift+Tab`, `←`/`→`), keeps warm context, and costs `0` plugin tokens.
+- **Use `plan-executor`** when you stay on a regular model day-to-day (no forced `Plan mode` lock on quick edits) and want:
+  1. **Non-Hydrogen workers** (`Sonnet 5.5`, `3.8 Flash`) — `Orchestrator` locks `executors` to `gemini-4-hydrogen`.
+  2. **Parallel isolated workers** (`workspace:"share"` / `"branch"`) and optional verifier workers.
+  3. **Per-plan 1-click choice** (`Inline` vs `Neon`/`Argon`/`Current` Swarm) + mid-run quota switching (`swarm{action:"model"}`).
 
-## Components
+## The 3 "Plan" Mechanisms in `agy`
 
-- **Rule** (`rules/AGENTS.md`): Compact 32-word gate triggering on `/plan` artifact approvals (`Proceed` or `[Approved] plan.md`) unless inside a swarm worker, native `planexecute` (`exit_plan_mode`/`[plan review]`), or explicit `inline`/model/`swarm`.
-- **Skill** (`skills/agy-executor/SKILL.md`): 1-click Q1 `Inline` + Neon Med/High/XHigh, single Argon High, and Current presets, lazy `swarm{action:"models", all:true}` on `Custom Swarm` or quota error (`Hydrogen`, `3.8 Flash`, `Sonnet` `low` -> `high`), direct `<swarm>` tool execution without `/swarm` skill handoff, and Turn-2 Coordinator self-wakeup handling.
+| Mechanism | Trigger | Scope / Behavior | `plan-executor` fires? |
+|---|---|---|---|
+| **`/plan`** | `/plan <task>` in chat | Creates `implementation_plan.md` + `Proceed` button | **Yes** (unless `Orchestrator`) |
+| **`Shift+Tab` → `plan`** | Prompt `Shift+Tab` (`--mode plan`) | Sticky read-only permission mode (`default`/`accept-edits`/`auto`/`plan`); never switches models, no auto-artifact | **Yes** only if `/plan` artifact is approved |
+| **`Orchestrator`** (`planexecute`) | `/model` → `Orchestrator` | Auto-switches `Planner` (`Plan mode is on`) ↔ `Executor` (`exit_plan_mode` / `[plan review]`) even in `auto` | **No** (defers cleanly) |
 
-## Workflow
+## Components & Workflow (`v2.5.0`)
 
-1. Coordinator presents `/plan` artifact (`plan.md`).
-2. User approves (`Proceed` or `[Approved] plan.md`).
-3. Coordinator asks **Q1** once (no pre-call to `swarm{action:"models"}`): `(Recommended) Inline (current session)`, `Neon Med/High/XHigh -> Hydrogen Low/Med` or `Neon Med -> Sonnet Med`, `Argon High -> Hydrogen Low`, `Current -> Hydrogen Low/Med`, or `Custom Swarm`.
-4. **If `Inline`**: Coordinator implements, verifies, and commits directly without calling `swarm`.
-5. **If `Swarm`** (or `Custom Swarm` after lazy `swarm{action:"models", all:true}` + Q2): Coordinator calls `swarm{action:"add", model:"<worker>"}` directly with the plan path (never `gemini-pro-orchestrator*`); if quota rejects `add`/`model`, calls `swarm{action:"models", all:true}` to switch or re-ask; if Coordinator != active model, calls `swarm{action:"model"}` after `add` and handles Turn-2 self-wakeup via `swarm_wait{since: <brief_seq>}` without re-briefing.
+- **[rules/AGENTS.md](./rules/AGENTS.md)** (`32` words): Gates `/plan` approvals (`Proceed` or `[Approved] plan.md`) unless inside a swarm worker, native `planexecute`, or explicit `inline`/model/`swarm`.
+- **[skills/agy-executor/SKILL.md](./skills/agy-executor/SKILL.md)**:
+  1. Calls `ask_question` once with short labels (no pre-call to `swarm{action:"models"}`): `(Recommended) Inline`, `Neon Med -> H2 Low/Med`, `Neon High/XHigh -> H2 Med`, `Neon Med -> Sonnet Med`, `Argon High -> H2 Low`, `Current -> H2 Low/Med`, or `Custom Swarm`.
+  2. **`Inline`**: Works directly (never calls `swarm`).
+  3. **`Swarm`**: Calls `swarm{action:"add", model:"<worker>"}` directly with the plan path (never `gemini-pro-orchestrator*` for Coordinator or Worker). Calls `swarm{action:"models", all:true}` lazily only for `Custom Swarm` or quota rejections. If Coordinator != active model, calls `swarm{action:"model"}` **after** `add` and answers Turn-2 self-wakeup with `swarm_wait{since:<brief_seq>}`.
 
 ---
 
-## `agy` Routing, Quota & `/swarm` Reference (`agy` `1.5.14`)
+## `agy` Routing, Quota & `<swarm>` Reference (`agy` `1.5.14`)
 
-Empirical notes from inspecting `agy` `1.5.14` and live `swarm{action:"models", all:true}` responses:
-
-### Model Catalog & `Gemini 4 Hydrogen`
-
-- **Dropdown vs. Tiered aliases**: `FetchAvailableModelsResponse` separates `models`, `agent_model_sorts` (interactive `/model` picker + `swarm`), and `tiered_model_ids` (`flash_lite`, `flash`, `pro` for `invoke_subagent` `Model` aliases). `-tiered-high` / `-tiered-xhigh` do not appear in the `swarm` dropdown, and no `-low-tiered` or `-medium-tiered` variants exist.
-- **`Gemini 4 Hydrogen` limits & thinking levels**: `gemini-4-hydrogen-low` (`THINKING_LEVEL_LOW=1`, `M463`), `-medium` (`2`, `M462`), `-high` (`3`, `M461`), and `-xhigh` (`7`, `M464`) all share `MaxTokens = 1,048,576` and `MaxOutputTokens = 65,536`.
-
-### Quota Pools & Cross-Pool Strategy
-
-Models in the same pool share quota and reset windows; changing effort (`low` -> `xhigh`) within a pool draws from the same bucket:
-
-| Pool | Models Observed | Reset Pattern |
+| Pool | Observed Models (`swarm{action:"models", all:true}`) | Reset |
 |---|---|---|
-| `GEMINI MODELS` (5h + Weekly) | `gemini-4-hydrogen-*`, `gemini-4-neon-*`, `gemini-4-carbon-*`, `gemini-3.8-flash-*`, `gemini-pro-orchestrator` (`Carbon`), `gemini-pro-orchestrator-neon` | Shared 5-hour sliding reset |
-| `GEMINI 4 ARGON` (Weekly) | `gemini-4-argon-low/medium/high`, `gemini-pro-orchestrator-g1-pro` (planner leg) | Separate weekly sliding reset |
-| Claude / 3P | `claude-opus-5-5-*`, `claude-sonnet-5-5-*`, `gpt-oss-120b-medium` (legacy `4.6` separate) | Separate multi-day reset |
+| `GEMINI MODELS` | `gemini-4-hydrogen-*`, `gemini-4-neon-*`, `gemini-4-carbon-*`, `gemini-3.8-flash-*`, `gemini-pro-orchestrator` (`Carbon`), `gemini-pro-orchestrator-neon` | Shared 5h + Weekly |
+| `GEMINI 4 ARGON` | `gemini-4-argon-low/medium/high`, `gemini-pro-orchestrator-argon` (planner leg) | Separate Weekly |
+| Claude / 3P | `claude-opus-5-5-*`, `claude-sonnet-5-5-*`, `gpt-oss-120b-medium` | Separate multi-day |
 
-- **Optimal cross-pool split**: Pair `gemini-4-argon-high` (Coordinator, weekly `GEMINI 4 ARGON` pool) with `gemini-4-hydrogen-low`/`medium`, `gemini-3.8-flash-medium`, or `claude-sonnet-5-5-medium` (Workers) so coordinator review does not drain the worker pool.
-
-### Why `gemini-pro-orchestrator*` Is Excluded From Swarm Presets
-
-- `codeassistclient.synthesizeOrchestratorModels` wires `gemini-pro-orchestrator` (`Carbon`, `M667`, `plan-execute-config`), `gemini-pro-orchestrator-argon`, and `gemini-pro-orchestrator-neon` to delegate internally to `gemini-flash-worker-agy` (`M669` -> `M432` Hydrogen); filtering requires the `gemini-pro-orchestrator*` wildcard to cover bare `gemini-pro-orchestrator` as well as `-argon`/`-neon`.
-- `planexecute.NewGateHook` locks those models into read-only `Plan mode` (`exit_plan_mode` / `enter_plan_mode`), refusing workspace edits until handoff and interrupting for review (`A plan review is due...`).
-- Using `gemini-4-argon-high` or `gemini-4-neon-high` as Swarm Coordinator avoids `Plan mode` locks while keeping the same planning family. To use standalone `Orchestrator (Neon)` outside Swarm, run `agy --model gemini-pro-orchestrator-neon` or highlight `Orchestrator` in `/model` and cycle `Planner` with `←`/`→` or `Tab`.
-
-### `nativeswarm` Behavior & Telemetry Verification
-
-- `swarm{action:"models"}` without `all:true` returns only `suggested` models; always pass `all:true` to inspect all served models and live `quota_remaining`.
-- `swarm{action:"model"}` rejects without an active swarm (`Inline` path must never call it), requires calling **after** `swarm{action:"add"}`, only switches `waiting` workers (revive `stopped` first; wait if `working`), and auto-wakes the Coordinator on Turn 2 (`selfModelSwitchNotice`: answer with `swarm_wait{since: <brief_seq>}`, do not re-brief).
-- `tasks:[...]` creates `<name>-1..-<k>`; `swarm{action:"kill"}` takes individual worker names and permanently deletes `share`/`branch` workspaces, so merge commits before `kill`.
-- **Empirical model verification**: Inspect `"model"` on `PLANNER_RESPONSE` entries in `~/.gemini/antigravity-cli/brain/<conversation-id>/.system_generated/logs/transcript.jsonl`.
+- **Catalog notes**: `gemini-4-hydrogen-low/medium/high/xhigh` (`M463`/`M462`/`M461`/`M464`) share `1,048,576` context / `65,536` output; `-tiered-*` aliases are `invoke_subagent`-only (`flash_lite`/`flash`/`pro`), not in `swarm`.
+- **Why `gemini-pro-orchestrator*` is excluded in Swarm**: `planexecute.NewGateHook` locks bare `gemini-pro-orchestrator` (`Carbon`), `-argon`, and `-neon` into read-only `Plan mode` (`exit_plan_mode` / `[plan review]`), conflicting with Swarm edits.
+- **`nativeswarm` quirks**: Always pass `all:true` to `models`; `model` requires an active swarm (after `add`) and only switches `waiting` workers; `kill` permanently deletes `share`/`branch` workspaces (merge first).
+- **Verify actual model used**: Check `"model"` on `PLANNER_RESPONSE` entries in `~/.gemini/antigravity-cli/brain/<conversation-id>/.system_generated/logs/transcript.jsonl`.
